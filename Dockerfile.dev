@@ -1,0 +1,31 @@
+# Development Dockerfile with hot reload
+
+FROM node:20-alpine
+
+# Install Chrome dependencies for Lighthouse
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install && \
+    npm install -g lighthouse tsx nodemon
+
+# Copy source code (will be mounted as volume in dev)
+COPY . .
+
+EXPOSE 3000 5173
+
+# Start both server and client in dev mode
+CMD ["npm", "run", "dev"]
