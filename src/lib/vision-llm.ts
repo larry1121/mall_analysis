@@ -50,7 +50,7 @@ export class VisionLLMGrader {
 
   constructor(
     apiKey?: string,
-    model: string = 'gpt-4o',
+    model: string = 'gpt-5', // GPT-5 사용
     maxRetries: number = 2
   ) {
     if (apiKey) {
@@ -418,7 +418,7 @@ ${input.html.substring(0, 50000)}
 export function createVisionLLMGrader(): VisionLLMGrader {
   const provider = process.env.LLM_PROVIDER || 'openai';
   const apiKey = process.env.LLM_API_KEY;
-  const model = process.env.LLM_MODEL || 'gpt-4o';
+  const model = process.env.LLM_MODEL || 'gpt-5'; // GPT-5 사용
 
   if (!apiKey && process.env.NODE_ENV !== 'test') {
     console.warn('LLM_API_KEY not provided, using mock grader');
