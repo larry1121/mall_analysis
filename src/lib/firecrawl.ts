@@ -1,4 +1,5 @@
 import { FirecrawlRequest, FirecrawlResponse, FirecrawlAction } from '../types/index.js';
+import { detectPlatform, extractDetectInput } from './platform-detector.js';
 
 export class FirecrawlClient {
   private apiKey: string;
@@ -201,29 +202,18 @@ export class FirecrawlClient {
   }
 
   /**
-   * 플랫폼 감지 헬퍼
+   * 플랫폼 감지 헬퍼 (향상된 버전)
    */
-  static detectPlatform(url: string, html?: string): 'cafe24' | 'imweb' | 'unknown' {
-    const urlLower = url.toLowerCase();
-    const htmlLower = html?.toLowerCase() || '';
-
-    // URL 패턴으로 감지
-    if (urlLower.includes('cafe24') || urlLower.includes('.cafe24shop.com')) {
-      return 'cafe24';
+  static detectPlatform(url: string, html?: string, links?: string[]): 'cafe24' | 'imweb' | 'unknown' {
+    const input = extractDetectInput(url, html, links);
+    const result = detectPlatform(input);
+    
+    console.log(`Platform detected: ${result.platform} (confidence: ${result.confidence.toFixed(2)})`);
+    if (result.signals.length > 0) {
+      console.log('Detection signals:', result.signals.join(', '));
     }
-    if (urlLower.includes('imweb') || urlLower.includes('.imweb.me')) {
-      return 'imweb';
-    }
-
-    // HTML 내용으로 감지
-    if (htmlLower.includes('cafe24') || htmlLower.includes('ec-base-') || htmlLower.includes('shop1.makeshop')) {
-      return 'cafe24';
-    }
-    if (htmlLower.includes('imweb') || htmlLower.includes('im-') || htmlLower.includes('_im_')) {
-      return 'imweb';
-    }
-
-    return 'unknown';
+    
+    return result.platform;
   }
 }
 
