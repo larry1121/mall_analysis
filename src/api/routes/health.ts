@@ -1,35 +1,52 @@
 import { FastifyInstance } from 'fastify';
-import { z } from 'zod';
 import { getDatabase } from '../../utils/database.js';
 import { getQueue } from '../../utils/queue.js';
 import { getStorage } from '../../utils/storage.js';
 
-const HealthResponseSchema = z.object({
-  status: z.enum(['healthy', 'degraded', 'unhealthy']),
-  timestamp: z.string().datetime(),
-  uptime: z.number(),
-  checks: z.object({
-    database: z.object({
-      status: z.enum(['ok', 'error']),
-      message: z.string().optional()
-    }),
-    queue: z.object({
-      status: z.enum(['ok', 'error']),
-      active: z.number().optional(),
-      waiting: z.number().optional(),
-      message: z.string().optional()
-    }),
-    storage: z.object({
-      status: z.enum(['ok', 'error']),
-      message: z.string().optional()
-    }),
-    memory: z.object({
-      used: z.number(),
-      total: z.number(),
-      percentage: z.number()
-    })
-  })
-});
+const HealthResponseSchema = {
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['healthy', 'degraded', 'unhealthy'] },
+    timestamp: { type: 'string', format: 'date-time' },
+    uptime: { type: 'number' },
+    checks: {
+      type: 'object',
+      properties: {
+        database: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['ok', 'error'] },
+            message: { type: 'string' }
+          }
+        },
+        queue: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['ok', 'error'] },
+            active: { type: 'number' },
+            waiting: { type: 'number' },
+            message: { type: 'string' }
+          }
+        },
+        storage: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['ok', 'error'] },
+            message: { type: 'string' }
+          }
+        },
+        memory: {
+          type: 'object',
+          properties: {
+            used: { type: 'number' },
+            total: { type: 'number' },
+            percentage: { type: 'number' }
+          }
+        }
+      }
+    }
+  }
+};
 
 export async function healthRoutes(fastify: FastifyInstance) {
   /**

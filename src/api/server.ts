@@ -15,10 +15,20 @@ const __dirname = dirname(__filename);
 
 export async function createServer() {
   const fastify = Fastify({
-    logger: {
-      level: process.env.LOG_LEVEL || 'info',
-      prettyPrint: process.env.NODE_ENV === 'development'
-    },
+    logger: process.env.NODE_ENV === 'development' 
+      ? {
+          level: process.env.LOG_LEVEL || 'info',
+          transport: {
+            target: 'pino-pretty',
+            options: {
+              translateTime: 'HH:MM:ss Z',
+              ignore: 'pid,hostname'
+            }
+          }
+        }
+      : {
+          level: process.env.LOG_LEVEL || 'info'
+        },
     bodyLimit: 10 * 1024 * 1024, // 10MB
     requestTimeout: 120000, // 120초
   });

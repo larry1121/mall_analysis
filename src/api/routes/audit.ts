@@ -1,27 +1,42 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { getQueue } from '../../utils/queue.js';
 import { getDatabase } from '../../utils/database.js';
 import { getStorage } from '../../utils/storage.js';
 import { AuditRequest, AuditRun, AuditResult } from '../../types/index.js';
 
-// 요청 스키마
-const AuditRequestSchema = z.object({
-  url: z.string().url().refine(url => {
-    const parsed = new URL(url);
-    return ['http:', 'https:'].includes(parsed.protocol);
-  }, 'URL must be HTTP or HTTPS')
-});
+// 요청 스키마 (JSON Schema)
+const AuditRequestSchema = {
+  type: 'object',
+  required: ['url'],
+  properties: {
+    url: { 
+      type: 'string', 
+      format: 'uri',
+      pattern: '^https?://'
+    }
+  }
+};
 
-// 응답 스키마
-const AuditRunSchema = z.object({
-  runId: z.string().uuid(),
-  url: z.string().url(),
-  status: z.enum(['pending', 'processing', 'completed', 'failed']),
-  startedAt: z.string().datetime(),
-  message: z.string().optional()
-});
+// 응답 스키마 (JSON Schema)
+const AuditRunSchema = {
+  type: 'object',
+  properties: {
+    runId: { type: 'string', format: 'uuid' },
+    url: { type: 'string', format: 'uri' },
+    status: { type: 'string', enum: ['pending', 'processing', 'completed', 'failed'] },
+    startedAt: { type: 'string', format: 'date-time' },
+    message: { type: 'string' }
+  }
+};
+
+const ErrorSchema = {
+  type: 'object',
+  properties: {
+    error: { type: 'boolean' },
+    message: { type: 'string' }
+  }
+};
 
 export async function auditRoutes(fastify: FastifyInstance) {
   const queue = await getQueue();
@@ -38,14 +53,8 @@ export async function auditRoutes(fastify: FastifyInstance) {
       body: AuditRequestSchema,
       response: {
         202: AuditRunSchema,
-        400: z.object({
-          error: z.boolean(),
-          message: z.string()
-        }),
-        429: z.object({
-          error: z.boolean(),
-          message: z.string()
-        })
+        400: ErrorSchema,
+        429: ErrorSchema
       }
     }
   }, async (request: FastifyRequest<{ Body: AuditRequest }>, reply: FastifyReply) => {
@@ -111,7 +120,7 @@ export async function auditRoutes(fastify: FastifyInstance) {
     } catch (error) {
       fastify.log.error({ error, url }, 'Failed to queue audit');
       
-      if (error instanceof z.ZodError) {
+      if (error instanceof Error && error.message.includes('validation')) {
         return reply.status(400).send({
           error: true,
           message: 'Invalid request: ' + error.errors.map(e => e.message).join(', ')
@@ -129,15 +138,16 @@ export async function auditRoutes(fastify: FastifyInstance) {
     Params: { runId: string }
   }>('/:runId', {
     schema: {
-      params: z.object({
-        runId: z.string().uuid()
-      }),
+      params: {
+        type: 'object',
+        required: ['runId'],
+        properties: {
+          runId: { type: 'string', format: 'uuid' }
+        }
+      },
       response: {
-        200: z.any(), // AuditResult는 너무 복잡해서 any 사용
-        404: z.object({
-          error: z.boolean(),
-          message: z.string()
-        })
+        200: { type: 'object' }, // AuditResult는 너무 복잡해서 any 사용
+        404: ErrorSchema
       }
     }
   }, async (request: FastifyRequest<{ Params: { runId: string } }>, reply: FastifyReply) => {
@@ -268,11 +278,14 @@ export async function auditRoutes(fastify: FastifyInstance) {
    */
   fastify.get('/list', {
     schema: {
-      querystring: z.object({
-        limit: z.coerce.number().min(1).max(100).default(10),
-        offset: z.coerce.number().min(0).default(0),
-        status: z.enum(['pending', 'processing', 'completed', 'failed']).optional()
-      })
+      querystring: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+          offset: { type: 'integer', minimum: 0, default: 0 },
+          status: { type: 'string', enum: ['pending', 'processing', 'completed', 'failed'] }
+        }
+      }
     }
   }, async (request: FastifyRequest<{
     Querystring: { limit?: number; offset?: number; status?: string }
@@ -304,9 +317,13 @@ export async function auditRoutes(fastify: FastifyInstance) {
     Params: { runId: string }
   }>('/:runId', {
     schema: {
-      params: z.object({
-        runId: z.string().uuid()
-      })
+      params: {
+        type: 'object',
+        required: ['runId'],
+        properties: {
+          runId: { type: 'string', format: 'uuid' }
+        }
+      }
     }
   }, async (request: FastifyRequest<{ Params: { runId: string } }>, reply: FastifyReply) => {
     const { runId } = request.params;

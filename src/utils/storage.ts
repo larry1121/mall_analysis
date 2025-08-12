@@ -211,12 +211,19 @@ let storageInstance: StorageService | LocalStorageService | null = null;
 export async function setupStorage(): Promise<void> {
   if (!storageInstance) {
     // S3 설정이 있으면 S3 사용, 없으면 로컬 스토리지
-    if (process.env.S3_ACCESS_KEY && process.env.S3_SECRET_KEY) {
-      storageInstance = new StorageService();
+    if (process.env.S3_ACCESS_KEY && process.env.S3_SECRET_KEY && process.env.S3_BUCKET) {
+      try {
+        storageInstance = new StorageService();
+        await storageInstance.ping();
+      } catch (error) {
+        console.warn('⚠️  Failed to initialize S3 storage, falling back to local storage:', error);
+        storageInstance = new LocalStorageService();
+        await storageInstance.ping();
+      }
     } else {
       storageInstance = new LocalStorageService();
+      await storageInstance.ping();
     }
-    await storageInstance.ping();
   }
 }
 
