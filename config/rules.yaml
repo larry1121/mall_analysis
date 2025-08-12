@@ -194,7 +194,7 @@ seoAnalytics:
     tags:
       description: "메타 태그"
       title: 1
-      description: 1
+      meta_description: 1
       og: 1
       h1: 1
       canonical: 1
