@@ -169,13 +169,11 @@ export async function auditRoutes(fastify: FastifyInstance) {
         const job = await queue.getJob(runId);
         
         if (job) {
-          const progress = job.progress();
+          const progress = job.progress || 0;
           
           return reply.send({
             ...result,
-            progress,
-            position: await job.getPosition(),
-            estimatedTimeRemaining: await job.getEstimatedTime()
+            progress
           });
         }
       }

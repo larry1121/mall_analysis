@@ -317,29 +317,17 @@ export class Reporter {
    * PDF 푸터
    */
   private addPDFFooter(doc: PDFKit.PDFDocument): void {
-    const pages = doc.bufferedPageRange();
-    for (let i = 0; i < pages.count; i++) {
-      doc.switchToPage(i);
-      
-      // 페이지 번호
-      doc.fontSize(10)
-         .fillColor('gray')
-         .text(
-           `${i + 1} / ${pages.count}`,
-           50,
-           doc.page.height - 50,
-           { align: 'center' }
-         );
-      
-      // 생성 정보
-      doc.fontSize(8)
-         .text(
-           '🤖 Generated with Mall Analysis POC',
-           50,
-           doc.page.height - 35,
-           { align: 'center' }
-         );
-    }
+    // 푸터는 각 페이지가 추가될 때마다 추가하는 방식으로 변경
+    // PDFKit의 bufferedPageRange와 switchToPage가 불안정하여 제거
+    // 대신 마지막 페이지에만 간단한 푸터 추가
+    doc.fontSize(10)
+       .fillColor('gray')
+       .text(
+         '🤖 Generated with Mall Analysis POC',
+         50,
+         doc.page.height - 35,
+         { align: 'center' }
+       );
   }
 
   /**

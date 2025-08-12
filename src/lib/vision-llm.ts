@@ -36,8 +36,8 @@ const LLMOutputSchema = z.object({
     trust: CheckResultSchema,
     mobile: CheckResultSchema,
     purchaseFlow: CheckResultSchema.extend({
-      ok: z.boolean(),
-      steps: z.array(PurchaseFlowStepSchema)
+      ok: z.boolean().default(false),
+      steps: z.array(PurchaseFlowStepSchema).default([])
     }),
     seoAnalytics: CheckResultSchema
   })
@@ -50,7 +50,7 @@ export class VisionLLMGrader {
 
   constructor(
     apiKey?: string,
-    model: string = 'gpt-5', // GPT-5 사용
+    model: string = 'gpt-4o', // GPT-4o 사용
     maxRetries: number = 2
   ) {
     if (apiKey) {
@@ -212,6 +212,7 @@ ${JSON.stringify(koreanKeywords, null, 2)}
    - PDP→장바구니 도달: 3점
    - 장바구니→결제 진입: 3점
    - 3단계 이내: 1점
+   - 필수 필드: ok (boolean), steps (array)
 
 10. seoAnalytics (SEO/분석):
     - 메타 태그 (title/description/og/h1/canonical): 각 1점, alt: 2점
@@ -246,7 +247,17 @@ ${input.html.substring(0, 50000)}
       },
       "insights": ["개선점"]
     },
-    // ... 나머지 8개 항목
+    "purchaseFlow": {
+      "score": 0-10,
+      "ok": true/false,
+      "steps": [
+        {"name": "home", "url": "URL", "screenshot": "base64 or path"},
+        {"name": "pdp", "url": "URL", "screenshot": "base64 or path"}
+      ],
+      "evidence": {},
+      "insights": ["개선점"]
+    },
+    // ... 나머지 항목들
   }
 }`;
   }
@@ -418,7 +429,7 @@ ${input.html.substring(0, 50000)}
 export function createVisionLLMGrader(): VisionLLMGrader {
   const provider = process.env.LLM_PROVIDER || 'openai';
   const apiKey = process.env.LLM_API_KEY;
-  const model = process.env.LLM_MODEL || 'gpt-5'; // GPT-5 사용
+  const model = process.env.LLM_MODEL || 'gpt-4o'; // GPT-4o 사용
 
   if (!apiKey && process.env.NODE_ENV !== 'test') {
     console.warn('LLM_API_KEY not provided, using mock grader');

@@ -1,4 +1,6 @@
-import { AlertCircle, TrendingUp } from 'lucide-react'
+import { AlertCircle, TrendingUp, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import DetailModal from './DetailModal'
 
 interface ScoreCardProps {
   check: {
@@ -11,6 +13,7 @@ interface ScoreCardProps {
 }
 
 export default function ScoreCard({ check }: ScoreCardProps) {
+  const [showDetail, setShowDetail] = useState(false)
   const getCategoryName = (id: string) => {
     const names: Record<string, string> = {
       speed: '페이지 속도',
@@ -102,6 +105,25 @@ export default function ScoreCard({ check }: ScoreCardProps) {
           </div>
         )}
 
+        {/* Evidence */}
+        {check.evidence && Object.keys(check.evidence).length > 0 && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+            <div className="text-xs font-medium text-blue-700 mb-2">근거 데이터</div>
+            <div className="space-y-1">
+              {Object.entries(check.evidence).slice(0, 3).map(([key, value]) => (
+                <div key={key} className="text-sm">
+                  <span className="text-gray-600">{key}:</span>
+                  <span className="ml-2 text-gray-900">
+                    {typeof value === 'object' 
+                      ? JSON.stringify(value, null, 2).substring(0, 50) + '...'
+                      : String(value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Insights */}
         {check.insights && check.insights.length > 0 && (
           <div className="space-y-2">
@@ -127,7 +149,23 @@ export default function ScoreCard({ check }: ScoreCardProps) {
             <span className="text-sm font-medium">우수한 수준입니다</span>
           </div>
         )}
+
+        {/* View Details Button */}
+        <button
+          onClick={() => setShowDetail(true)}
+          className="mt-4 w-full flex items-center justify-center space-x-2 py-2 px-4 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium text-gray-700"
+        >
+          <span>상세보기</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
+
+      {/* Detail Modal */}
+      <DetailModal 
+        isOpen={showDetail}
+        onClose={() => setShowDetail(false)}
+        check={check}
+      />
     </div>
   )
 }
