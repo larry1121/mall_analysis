@@ -4,7 +4,10 @@
       "Bash(mkdir:*)",
       "Bash(git add:*)",
       "Bash(npm install:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm run worker:*)",
+      "Bash(source .env)",
+      "WebFetch(domain:docs.firecrawl.dev)"
     ],
     "deny": [],
     "ask": []

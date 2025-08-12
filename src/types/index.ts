@@ -48,17 +48,23 @@ export interface AuditResult extends AuditRun {
 }
 
 export interface FirecrawlAction {
-  type: 'wait' | 'click' | 'screenshot';
-  ms?: number;
+  type: 'wait' | 'click' | 'screenshot' | 'scrape' | 'scroll' | 'write' | 'press';
+  milliseconds?: number;
   selector?: string;
+  value?: string; // for write action
+  direction?: 'up' | 'down'; // for scroll action
 }
 
 export interface FirecrawlRequest {
   url: string;
-  formats: string[];
-  device: 'mobile' | 'desktop';
-  waitFor: number;
-  timeout: number;
+  formats?: string[];
+  mobile?: boolean;
+  waitFor?: number;
+  timeout?: number;
+  onlyMainContent?: boolean;
+  includeTags?: string[];
+  excludeTags?: string[];
+  headers?: Record<string, string>;
   location?: {
     country: string;
     languages: string[];

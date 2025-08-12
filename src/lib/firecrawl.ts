@@ -21,7 +21,6 @@ export class FirecrawlClient {
     const request: FirecrawlRequest = {
       url,
       formats: ['html', 'screenshot', 'links', 'markdown'],
-      device: 'mobile',
       waitFor: 1500,
       timeout: this.timeout,
       location: {
@@ -82,8 +81,10 @@ export class FirecrawlClient {
    * 플랫폼별 액션 시퀀스 구성
    */
   private buildActions(platform?: 'cafe24' | 'imweb' | 'unknown'): FirecrawlAction[] {
+    // 간단한 액션만 사용 (복잡한 액션은 실패 가능성 높음)
     const baseActions: FirecrawlAction[] = [
-      { type: 'wait', ms: 2000 }
+      { type: 'wait', milliseconds: 1000 },
+      { type: 'screenshot' }
     ];
 
     // 플랫폼별 셀렉터 우선순위
@@ -107,25 +108,13 @@ export class FirecrawlClient {
 
     const selectors = platformSelectors[platform || 'unknown'];
 
-    // 구매 플로우 액션 추가
-    const flowActions: FirecrawlAction[] = [
-      // Step 1: 상품 페이지로 이동
-      { type: 'click', selector: selectors.product },
-      { type: 'wait', ms: 1200 },
-      { type: 'screenshot' },
-      
-      // Step 2: 장바구니로 이동
-      { type: 'click', selector: selectors.cart },
-      { type: 'wait', ms: 1200 },
-      { type: 'screenshot' },
-      
-      // Step 3: 결제 페이지 진입 (진입까지만)
-      { type: 'click', selector: selectors.checkout },
-      { type: 'wait', ms: 1200 },
-      { type: 'screenshot' }
-    ];
-
-    return [...baseActions, ...flowActions];
+    // 구매 플로우 액션 추가 (간소화 - 너무 복잡하면 실패)
+    const flowActions: FirecrawlAction[] = [];
+    
+    // 액션을 너무 많이 추가하면 타임아웃 발생
+    // 기본 스크린샷만으로도 충분한 정보 수집 가능
+    
+    return [...baseActions];
   }
 
   /**
@@ -154,24 +143,24 @@ export class FirecrawlClient {
     // 액션이 실패했거나 스크린샷이 부족한 경우 폴백
     if (!result.success || !result.data?.actions?.screenshots?.length) {
       console.log('Primary scrape failed or incomplete, trying fallback...');
+      if (!result.success) {
+        console.log('Firecrawl error:', result.error);
+      }
       
       // 최소 액션으로 재시도
       const fallbackRequest: FirecrawlRequest = {
         url,
-        formats: ['html', 'screenshot', 'links'],
-        device: 'mobile',
+        formats: ['html', 'markdown'],
+        mobile: true,
         waitFor: 2000,
         timeout: this.timeout,
+        onlyMainContent: false,
         location: {
           country: 'KR',
           languages: ['ko-KR']
         },
         actions: [
-          { type: 'wait', ms: 2000 },
-          { type: 'screenshot' },
-          // 첫 번째 상품 링크만 클릭 시도
-          { type: 'click', selector: "a[href*='/product']:first, a[href*='/store']:first" },
-          { type: 'wait', ms: 1000 },
+          { type: 'wait', milliseconds: 1500 },
           { type: 'screenshot' }
         ]
       };

@@ -26,6 +26,9 @@ export async function runAudit(
     
     let firecrawlClient: FirecrawlClient | null = null;
     
+    console.log('FIRECRAWL_API_KEY exists:', !!process.env.FIRECRAWL_API_KEY);
+    console.log('FIRECRAWL_API_KEY first 10 chars:', process.env.FIRECRAWL_API_KEY?.substring(0, 10));
+    
     if (process.env.FIRECRAWL_API_KEY) {
       firecrawlClient = createFirecrawlClient();
       const platform = FirecrawlClient.detectPlatform(url);
