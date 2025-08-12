@@ -1,0 +1,261 @@
+# 자사몰 첫 페이지 채점 규칙 정의
+# 각 항목 10점 만점, 총 100점
+
+speed:
+  description: "페이지 로딩 성능 (Lighthouse 기반)"
+  weight: 10
+  rules:
+    lcp:
+      description: "Largest Contentful Paint"
+      thresholds: [2.5, 4.0]
+      points: [4, 3, 1]
+    cls:
+      description: "Cumulative Layout Shift"
+      max: 0.1
+      points: 2
+    tbt:
+      description: "Total Blocking Time"
+      max: 300
+      points: 2
+    errors:
+      description: "Network errors"
+      max: 0
+      points: 2
+
+firstView:
+  description: "퍼스트뷰 효과성"
+  weight: 10
+  rules:
+    ctaVisible:
+      description: "CTA 버튼 스크롤 없이 노출"
+      required: true
+      points: 5
+    heroPromo:
+      description: "히어로 프로모션 문구"
+      required: true
+      points: 3
+    fontMinPx:
+      description: "최소 폰트 크기"
+      min: 16
+      points: 2
+
+bi:
+  description: "브랜드 아이덴티티"
+  weight: 10
+  rules:
+    logo:
+      description: "로고 위치 (상단 15% 내)"
+      headerZoneTopPct: 0.15
+      points: 3
+    primaryReuseRatio:
+      description: "Primary 색상 재사용률"
+      thresholds: [0.4, 0.6]
+      points: [0, 2, 4]
+    typographyHierarchy:
+      description: "타이포그래피 계층"
+      thresholds: [1.6, 2.0]
+      points: [2, 3]
+
+navigation:
+  description: "내비게이션 및 카테고리"
+  weight: 10
+  rules:
+    menuCount:
+      description: "메뉴 개수"
+      min: 3
+      max: 8
+      points: 4
+    searchPresent:
+      description: "검색창 존재"
+      required: true
+      points: 3
+    bestNewSection:
+      description: "베스트/신상품 섹션"
+      keywords: ["베스트", "신상품", "추천"]
+      points: 3
+
+uspPromo:
+  description: "USP 및 프로모션"
+  weight: 10
+  rules:
+    aboveFold:
+      description: "Above the fold 위치"
+      required: true
+      points: 3
+    contrast:
+      description: "텍스트 대비"
+      thresholds: [3.0, 4.5]
+      points: [1, 2, 3]
+    fontSize:
+      description: "폰트 크기"
+      min: 18
+      points: 1
+    ctaNearby:
+      description: "CTA 근접성"
+      thresholds: [300, 500]
+      points: [2, 1, 0]
+    concreteness:
+      description: "구체적 혜택"
+      patterns: 
+        - "\\d+%"
+        - "\\d{1,3}(,\\d{3})*원"
+        - "~까지"
+        - "첫구매"
+      points: 2
+
+visuals:
+  description: "비주얼 및 레이아웃"
+  weight: 10
+  rules:
+    altRatio:
+      description: "이미지 alt 텍스트 비율"
+      min: 0.8
+      points: 2
+    popups:
+      description: "팝업 개수"
+      max: 1
+      points: 3
+    flowOrderOK:
+      description: "콘텐츠 플로우 순서"
+      required: true
+      points: 3
+    imageQuality:
+      description: "이미지 품질"
+      heuristic: true
+      points: 2
+
+trust:
+  description: "신뢰 요소"
+  weight: 10
+  rules:
+    reviewsOrRatings:
+      description: "리뷰/평점 표시"
+      required: true
+      points: 3
+    policies:
+      description: "정책 표시"
+      keywords: ["교환", "반품", "AS"]
+      points: 3
+    payments:
+      description: "결제 수단"
+      anyOf: 
+        - "inicis"
+        - "tosspayments"
+        - "naverpay"
+        - "kakaopay"
+      points: 4
+
+mobile:
+  description: "모바일 최적화"
+  weight: 10
+  rules:
+    viewportMeta:
+      description: "viewport 메타 태그"
+      required: true
+      points: 2
+    readability:
+      description: "가독성"
+      ok: true
+      points: 3
+    tapTargets:
+      description: "탭 타겟 크기"
+      ok: true
+      points: 3
+    overflow:
+      description: "가로 스크롤 없음"
+      none: true
+      points: 2
+
+purchaseFlow:
+  description: "구매 플로우"
+  weight: 10
+  rules:
+    reachPdp:
+      description: "상품 상세 도달"
+      required: true
+      points: 3
+    reachCart:
+      description: "장바구니 도달"
+      required: true
+      points: 3
+    reachCheckout:
+      description: "결제 페이지 진입"
+      optional: true
+      points: 3
+    maxSteps:
+      description: "최대 단계 수"
+      max: 3
+      points: 1
+
+seoAnalytics:
+  description: "SEO 및 분석"
+  weight: 10
+  rules:
+    tags:
+      description: "메타 태그"
+      title: 1
+      description: 1
+      og: 1
+      h1: 1
+      canonical: 1
+      altRatio: 2
+    analytics:
+      description: "분석 코드"
+      anyOf:
+        - "googletagmanager.com"
+        - "gtag/js?id=G-"
+        - "connect.facebook.net"
+        - "wcs.naver.net"
+      points: 3
+
+# 개선 제안 템플릿
+improvements:
+  speed:
+    lcp_slow: "히어로 이미지 용량이 큽니다. WebP/AVIF 변환 및 1200px 리사이즈, preload 권장."
+    cls_high: "레이아웃 시프트가 큽니다. 이미지에 width/height 속성 추가, 폰트 preload 권장."
+    tbt_high: "메인 스레드 블로킹이 큽니다. 서드파티 스크립트 지연 로드 권장."
+    
+  firstView:
+    cta_missing: "퍼스트뷰에 CTA 버튼이 없습니다. 스크롤 없이 보이는 위치에 배치하세요."
+    hero_weak: "히어로 섹션의 프로모션 메시지가 약합니다. 구체적인 혜택을 강조하세요."
+    font_small: "모바일 폰트 크기가 작습니다. 최소 16px 이상으로 설정하세요."
+    
+  bi:
+    logo_position: "로고가 예상 위치에 없습니다. 상단 왼쪽 또는 중앙에 배치하세요."
+    color_inconsistent: "브랜드 컬러 일관성이 부족합니다. Primary 색상을 CTA와 주요 요소에 통일하세요."
+    typography_weak: "타이포그래피 계층이 불명확합니다. 제목과 본문 크기 차이를 늘리세요."
+    
+  navigation:
+    menu_count: "메뉴가 너무 많거나 적습니다. 3-8개 사이로 조정하세요."
+    search_missing: "검색창이 없습니다. 헤더에 검색 기능을 추가하세요."
+    category_missing: "베스트/신상품 카테고리가 없습니다. 인기 상품 섹션을 추가하세요."
+    
+  uspPromo:
+    contrast_low: "USP 텍스트 대비가 낮습니다. 배경 어둡게 또는 텍스트 색상을 조정하세요."
+    cta_far: "USP와 CTA 버튼이 멀리 있습니다. 가까이 배치하여 전환율을 높이세요."
+    benefit_vague: "혜택이 구체적이지 않습니다. 숫자나 기한을 명시하세요."
+    
+  visuals:
+    alt_missing: "이미지 alt 텍스트가 부족합니다. SEO와 접근성을 위해 추가하세요."
+    popup_many: "팝업이 너무 많습니다. 사용자 경험을 위해 1개 이하로 줄이세요."
+    flow_broken: "콘텐츠 흐름이 부자연스럽습니다. 논리적 순서로 재배치하세요."
+    
+  trust:
+    reviews_missing: "리뷰/평점이 없습니다. 고객 후기를 메인에 노출하세요."
+    policy_missing: "교환/반품 정책이 불명확합니다. 푸터에 명시하세요."
+    payment_missing: "결제 수단 표시가 없습니다. 신뢰할 수 있는 결제 로고를 노출하세요."
+    
+  mobile:
+    viewport_missing: "viewport 메타 태그가 없습니다. 모바일 최적화를 위해 추가하세요."
+    readability_poor: "모바일 가독성이 떨어집니다. 폰트 크기와 줄 간격을 조정하세요."
+    tap_small: "탭 타겟이 작습니다. 최소 48x48px로 설정하세요."
+    overflow_exists: "가로 스크롤이 발생합니다. 콘텐츠 너비를 조정하세요."
+    
+  purchaseFlow:
+    pdp_fail: "상품 상세 페이지 접근이 어렵습니다. 상품 링크를 명확히 하세요."
+    cart_fail: "장바구니 접근이 어렵습니다. 장바구니 버튼을 눈에 띄게 배치하세요."
+    steps_many: "구매 단계가 많습니다. 3단계 이내로 간소화하세요."
+    
+  seoAnalytics:
+    tags_missing: "필수 메타 태그가 없습니다. title, description, OG 태그를 추가하세요."
+    analytics_missing: "분석 코드가 없습니다. Google Analytics나 네이버 분석을 설치하세요."
