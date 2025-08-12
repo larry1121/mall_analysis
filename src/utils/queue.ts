@@ -1,5 +1,6 @@
 import { Queue, Worker, Job } from 'bullmq';
 import Redis from 'ioredis';
+import { EventEmitter } from 'events';
 
 export interface AuditJobData {
   runId: string;
@@ -13,6 +14,104 @@ export interface QueueCounts {
   failed: number;
   delayed: number;
   paused: number;
+}
+
+// 메모리 기반 간단한 큐 (Redis 없을 때 사용)
+class InMemoryQueue extends EventEmitter {
+  private jobs: Map<string, any> = new Map();
+  private statusCounts: QueueCounts = {
+    active: 0,
+    waiting: 0,
+    completed: 0,
+    failed: 0,
+    delayed: 0,
+    paused: 0
+  };
+  private isPaused: boolean = false;
+
+  async add(name: string, data: AuditJobData, options?: any): Promise<any> {
+    const job = {
+      id: data.runId,
+      name,
+      data,
+      opts: options,
+      progress: 0,
+      attemptsMade: 0,
+      status: 'waiting'
+    };
+    
+    this.jobs.set(data.runId, job);
+    this.statusCounts.waiting++;
+    
+    // 비동기로 작업 처리 시뮬레이션
+    setTimeout(() => {
+      this.emit('job-ready', job);
+    }, 100);
+    
+    return job;
+  }
+
+  async getJob(jobId: string): Promise<any> {
+    const job = this.jobs.get(jobId);
+    if (!job) return undefined;
+    
+    return {
+      ...job,
+      progress: () => job.progress,
+      getPosition: async () => 0,
+      getEstimatedTime: async () => 10000,
+      remove: async () => {
+        this.jobs.delete(jobId);
+      }
+    };
+  }
+
+  async getActiveCount(): Promise<number> {
+    return this.statusCounts.active;
+  }
+
+  async getJobCounts(): Promise<QueueCounts> {
+    return { ...this.statusCounts };
+  }
+
+  async pause(): Promise<void> {
+    this.isPaused = true;
+  }
+
+  async resume(): Promise<void> {
+    this.isPaused = false;
+  }
+
+  async clean(grace: number, limit: number, status: 'completed' | 'failed'): Promise<string[]> {
+    const cleaned: string[] = [];
+    this.jobs.forEach((job, id) => {
+      if (job.status === status && cleaned.length < limit) {
+        this.jobs.delete(id);
+        cleaned.push(id);
+      }
+    });
+    return cleaned;
+  }
+
+  async obliterate(): Promise<void> {
+    this.jobs.clear();
+    this.statusCounts = {
+      active: 0,
+      waiting: 0,
+      completed: 0,
+      failed: 0,
+      delayed: 0,
+      paused: 0
+    };
+  }
+
+  async close(): Promise<void> {
+    this.removeAllListeners();
+  }
+
+  getQueue(): any {
+    return this;
+  }
 }
 
 class QueueManager {
@@ -110,19 +209,31 @@ class QueueManager {
   }
 }
 
-let queueInstance: QueueManager | null = null;
+let queueInstance: QueueManager | InMemoryQueue | null = null;
 
 export async function setupQueue(): Promise<void> {
   if (!queueInstance) {
-    queueInstance = new QueueManager();
+    // REDIS_URL이 없으면 메모리 큐 사용
+    if (!process.env.REDIS_URL) {
+      console.log('📝 REDIS_URL not set, using in-memory queue');
+      queueInstance = new InMemoryQueue();
+    } else {
+      try {
+        queueInstance = new QueueManager();
+        console.log('✅ Connected to Redis queue');
+      } catch (error) {
+        console.warn('⚠️  Failed to connect to Redis, falling back to in-memory queue:', error);
+        queueInstance = new InMemoryQueue();
+      }
+    }
   }
 }
 
-export async function getQueue(): Promise<QueueManager> {
+export async function getQueue(): Promise<QueueManager | InMemoryQueue> {
   if (!queueInstance) {
-    queueInstance = new QueueManager();
+    await setupQueue();
   }
-  return queueInstance;
+  return queueInstance!;
 }
 
 export { Queue, Worker, Job } from 'bullmq';

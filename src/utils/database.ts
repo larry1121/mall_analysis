@@ -3,6 +3,107 @@ import { AuditRun, AuditResult, CheckResult } from '../types/index.js';
 
 const { Pool } = pg;
 
+// 메모리 저장소 (DB 없을 때 사용)
+class InMemoryDatabase {
+  private runs: Map<string, AuditRun> = new Map();
+  private checks: Map<string, CheckResult[]> = new Map();
+  private flowSteps: Map<string, any[]> = new Map();
+
+  async ping(): Promise<void> {
+    // 메모리 DB는 항상 OK
+    return Promise.resolve();
+  }
+
+  async setupTables(): Promise<void> {
+    // 메모리 DB는 테이블 설정 불필요
+    return Promise.resolve();
+  }
+
+  async createRun(run: AuditRun): Promise<void> {
+    this.runs.set(run.runId, run);
+  }
+
+  async updateRun(runId: string, updates: Partial<AuditRun>): Promise<void> {
+    const run = this.runs.get(runId);
+    if (run) {
+      this.runs.set(runId, { ...run, ...updates });
+    }
+  }
+
+  async getRun(runId: string): Promise<AuditRun | null> {
+    return this.runs.get(runId) || null;
+  }
+
+  async getFullResult(runId: string): Promise<AuditResult | null> {
+    const run = this.runs.get(runId);
+    if (!run) return null;
+
+    const checks = this.checks.get(runId) || [];
+    const steps = this.flowSteps.get(runId) || [];
+
+    return {
+      ...run,
+      checks,
+      purchaseFlow: steps.length > 0 ? {
+        ok: true,
+        steps
+      } : undefined
+    };
+  }
+
+  async saveCheckResult(runId: string, check: CheckResult): Promise<void> {
+    const checks = this.checks.get(runId) || [];
+    checks.push(check);
+    this.checks.set(runId, checks);
+  }
+
+  async saveFlowStep(runId: string, stepIndex: number, step: any): Promise<void> {
+    const steps = this.flowSteps.get(runId) || [];
+    steps[stepIndex] = step;
+    this.flowSteps.set(runId, steps);
+  }
+
+  async listRuns(options: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+  }): Promise<AuditRun[]> {
+    let runs = Array.from(this.runs.values());
+    
+    if (options.status) {
+      runs = runs.filter(r => r.status === options.status);
+    }
+    
+    // 최신순 정렬
+    runs.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+    
+    const start = options.offset || 0;
+    const end = start + (options.limit || runs.length);
+    
+    return runs.slice(start, end);
+  }
+
+  async countRuns(options: { status?: string }): Promise<number> {
+    let runs = Array.from(this.runs.values());
+    
+    if (options.status) {
+      runs = runs.filter(r => r.status === options.status);
+    }
+    
+    return runs.length;
+  }
+
+  async deleteRun(runId: string): Promise<void> {
+    this.runs.delete(runId);
+    this.checks.delete(runId);
+    this.flowSteps.delete(runId);
+  }
+
+  async close(): Promise<void> {
+    // 메모리 DB는 클린업 불필요
+  }
+}
+
 export class Database {
   private pool: pg.Pool;
 
@@ -342,19 +443,30 @@ export class Database {
   }
 }
 
-let dbInstance: Database | null = null;
+let dbInstance: Database | InMemoryDatabase | null = null;
 
 export async function setupDatabase(): Promise<void> {
   if (!dbInstance) {
-    dbInstance = new Database();
-    await dbInstance.setupTables();
+    // DATABASE_URL이 없으면 메모리 DB 사용
+    if (!process.env.DATABASE_URL) {
+      console.log('📝 DATABASE_URL not set, using in-memory database');
+      dbInstance = new InMemoryDatabase();
+    } else {
+      try {
+        dbInstance = new Database();
+        await dbInstance.setupTables();
+        console.log('✅ Connected to PostgreSQL database');
+      } catch (error) {
+        console.warn('⚠️  Failed to connect to database, falling back to in-memory storage:', error);
+        dbInstance = new InMemoryDatabase();
+      }
+    }
   }
 }
 
-export async function getDatabase(): Promise<Database> {
+export async function getDatabase(): Promise<Database | InMemoryDatabase> {
   if (!dbInstance) {
-    dbInstance = new Database();
-    await dbInstance.setupTables();
+    await setupDatabase();
   }
-  return dbInstance;
+  return dbInstance!;
 }

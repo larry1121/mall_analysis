@@ -3,12 +3,15 @@ import { startServer } from './api/server.js';
 
 // 환경변수 검증
 function validateEnv() {
-  const required = [
-    'DATABASE_URL',
-    'REDIS_URL'
-  ];
-
   const warnings = [];
+  
+  if (!process.env.DATABASE_URL) {
+    warnings.push('DATABASE_URL not set - Using in-memory database (data will not persist)');
+  }
+  
+  if (!process.env.REDIS_URL) {
+    warnings.push('REDIS_URL not set - Using in-memory queue (limited to single instance)');
+  }
   
   if (!process.env.FIRECRAWL_API_KEY) {
     warnings.push('FIRECRAWL_API_KEY not set - Firecrawl features will be disabled');
@@ -22,17 +25,12 @@ function validateEnv() {
     warnings.push('S3 credentials not set - Using local file storage');
   }
 
-  const missing = required.filter(key => !process.env[key]);
-  
-  if (missing.length > 0) {
-    console.error('❌ Missing required environment variables:', missing.join(', '));
-    console.error('Please create a .env file based on .env.example');
-    process.exit(1);
-  }
-
   if (warnings.length > 0) {
-    console.warn('⚠️  Warnings:');
+    console.warn('\n⚠️  Running with limited features:');
     warnings.forEach(w => console.warn(`   - ${w}`));
+    console.warn('\n💡 For full functionality, configure the missing environment variables in .env file\n');
+  } else {
+    console.log('✅ All services configured properly\n');
   }
 }
 
