@@ -1,5 +1,6 @@
 import pg from 'pg';
 import { AuditRun, AuditResult, CheckResult } from '../types/index.js';
+import { FileDatabase } from './file-database.js';
 
 const { Pool } = pg;
 
@@ -31,7 +32,10 @@ class InMemoryDatabase {
   }
 
   async getRun(runId: string): Promise<AuditRun | null> {
-    return this.runs.get(runId) || null;
+    const run = this.runs.get(runId);
+    console.log(`[InMemoryDB] getRun(${runId}):`, run ? 'found' : 'not found');
+    console.log(`[InMemoryDB] Total runs:`, this.runs.size);
+    return run || null;
   }
 
   async getFullResult(runId: string): Promise<AuditResult | null> {
@@ -443,28 +447,32 @@ export class Database {
   }
 }
 
-let dbInstance: Database | InMemoryDatabase | null = null;
+// 전역 싱글톤 인스턴스 - FileDatabase 사용 (프로세스 간 공유 가능)
+const globalFileDB = new FileDatabase();
+let dbInstance: Database | InMemoryDatabase | FileDatabase | null = null;
 
 export async function setupDatabase(): Promise<void> {
   if (!dbInstance) {
-    // DATABASE_URL이 없으면 메모리 DB 사용
-    if (!process.env.DATABASE_URL) {
-      console.log('📝 DATABASE_URL not set, using in-memory database');
-      dbInstance = new InMemoryDatabase();
-    } else {
+    // PostgreSQL 시도
+    if (process.env.DATABASE_URL && process.env.DATABASE_URL !== 'postgresql://user:password@localhost:5432/mall_analysis') {
       try {
         dbInstance = new Database();
         await dbInstance.setupTables();
         console.log('✅ Connected to PostgreSQL database');
+        return;
       } catch (error) {
-        console.warn('⚠️  Failed to connect to database, falling back to in-memory storage:', error);
-        dbInstance = new InMemoryDatabase();
+        console.warn('⚠️  Failed to connect to PostgreSQL:', error);
       }
     }
+    
+    // FileDatabase 사용 (프로세스 간 공유 가능)
+    console.log('📁 Using file-based database (shared across processes)');
+    dbInstance = globalFileDB;
+    await dbInstance.setupTables();
   }
 }
 
-export async function getDatabase(): Promise<Database | InMemoryDatabase> {
+export async function getDatabase(): Promise<Database | InMemoryDatabase | FileDatabase> {
   if (!dbInstance) {
     await setupDatabase();
   }

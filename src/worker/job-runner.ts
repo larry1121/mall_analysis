@@ -108,15 +108,21 @@ export async function runAudit(
     };
 
     // LLM 그레이딩 또는 Mock
+    console.log('LLM_API_KEY exists:', !!process.env.LLM_API_KEY);
+    console.log('LLM_API_KEY first 10 chars:', process.env.LLM_API_KEY?.substring(0, 10));
+    
     if (process.env.LLM_API_KEY) {
       try {
+        console.log('Attempting to call OpenAI API...');
         llmOutput = await grader.grade(graderInput);
+        console.log('OpenAI API call successful');
         await updateProgress(70, 'AI analysis completed');
       } catch (error) {
         console.error('LLM grading failed, using mock:', error);
         llmOutput = await grader.gradeMock(graderInput);
       }
     } else {
+      console.log('No LLM_API_KEY, using mock');
       llmOutput = await grader.gradeMock(graderInput);
       await updateProgress(70, 'Mock analysis completed');
     }
@@ -182,7 +188,11 @@ export async function runAudit(
       purchaseFlow: llmOutput.scores.purchaseFlow?.steps ? {
         ok: llmOutput.scores.purchaseFlow.ok,
         steps: llmOutput.scores.purchaseFlow.steps
-      } : undefined
+      } : undefined,
+      screenshots: {
+        main: firecrawlData?.screenshot || undefined,
+        actions: firecrawlData?.actions?.screenshots || []
+      }
     };
 
     // 리포트 생성

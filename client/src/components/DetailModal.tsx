@@ -90,13 +90,15 @@ export default function DetailModal({ isOpen, onClose, check }: DetailModalProps
                     <h3 className="text-lg font-semibold mb-2">측정값</h3>
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="grid grid-cols-2 gap-4">
-                        {Object.entries(check.metrics).map(([key, value]) => (
+                        {Object.entries(check.metrics).filter(([_, value]) => value !== null && value !== undefined).map(([key, value]) => (
                           <div key={key}>
                             <div className="text-sm text-gray-600">{key}</div>
                             <div className="font-medium text-gray-900">
                               {typeof value === 'number' 
-                                ? value.toFixed(2) 
-                                : String(value)}
+                                ? value > 0 ? value.toFixed(2) : '0.00'
+                                : typeof value === 'object' 
+                                  ? JSON.stringify(value) 
+                                  : String(value)}
                             </div>
                           </div>
                         ))}
@@ -110,9 +112,18 @@ export default function DetailModal({ isOpen, onClose, check }: DetailModalProps
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold mb-2">근거 데이터</h3>
                     <div className="bg-blue-50 rounded-lg p-4">
-                      <pre className="text-sm text-gray-800 whitespace-pre-wrap">
-                        {JSON.stringify(check.evidence, null, 2)}
-                      </pre>
+                      <div className="space-y-3">
+                        {Object.entries(check.evidence).filter(([_, value]) => value !== null && value !== undefined).map(([key, value]) => (
+                          <div key={key}>
+                            <div className="font-medium text-blue-900 mb-1">{key}:</div>
+                            <div className="text-sm text-gray-800 bg-white p-2 rounded">
+                              {typeof value === 'object' 
+                                ? <pre className="whitespace-pre-wrap">{JSON.stringify(value, null, 2)}</pre>
+                                : String(value)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

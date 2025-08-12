@@ -91,10 +91,13 @@ export class VisionLLMGrader {
           throw new Error('Empty response from LLM');
         }
 
+        console.log('OpenAI response (first 500 chars):', content.substring(0, 500));
         const parsed = JSON.parse(content);
         
         // Zod 검증
         const validated = LLMOutputSchema.parse(parsed);
+        
+        console.log('Validated scores - speed:', validated.scores.speed.score, 'firstView:', validated.scores.firstView.score);
         
         return validated as LLMGraderOutput;
       } catch (error) {

@@ -300,8 +300,8 @@ export class Scorer {
     }
 
     // 정책 (3점)
-    const policies = evidence.policies || [];
-    const hasPolicies = policies.some((p: string) => 
+    const policies = Array.isArray(evidence.policies) ? evidence.policies : [];
+    const hasPolicies = policies.length > 0 && policies.some((p: string) => 
       /교환|반품|AS|환불/i.test(p)
     );
     if (hasPolicies || policies.length >= 2) {
@@ -309,8 +309,8 @@ export class Scorer {
     }
 
     // 결제 수단 (4점)
-    const payments = evidence.payments || [];
-    const hasPayments = payments.some((p: string) => 
+    const payments = Array.isArray(evidence.payments) ? evidence.payments : [];
+    const hasPayments = payments.length > 0 && payments.some((p: string) => 
       /inicis|toss|naver|kakao/i.test(p)
     );
     if (hasPayments || payments.length >= 2) {

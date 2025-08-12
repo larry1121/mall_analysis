@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Zap, Shield, BarChart3, Sparkles } from 'lucide-react'
+import { Search, Zap, Shield, BarChart3, Sparkles, Clock, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 
@@ -8,9 +8,35 @@ interface HomePageProps {
   onStartAudit: (runId: string) => void
 }
 
+interface AuditRun {
+  runId: string
+  url: string
+  status: string
+  startedAt: string
+  totalScore?: number
+  elapsedMs?: number
+}
+
 export default function HomePage({ onStartAudit }: HomePageProps) {
   const [url, setUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [recentRuns, setRecentRuns] = useState<AuditRun[]>([])
+  const [loadingRuns, setLoadingRuns] = useState(true)
+
+  useEffect(() => {
+    fetchRecentRuns()
+  }, [])
+
+  const fetchRecentRuns = async () => {
+    try {
+      const response = await axios.get('/api/audit/list?limit=5')
+      setRecentRuns(response.data.runs || [])
+    } catch (error) {
+      console.error('Failed to fetch recent runs:', error)
+    } finally {
+      setLoadingRuns(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,6 +161,71 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
               </button>
             </form>
           </motion.div>
+
+          {/* Recent Results */}
+          {recentRuns.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="mt-12"
+            >
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">최근 분석 결과</h3>
+              <div className="space-y-3">
+                {recentRuns.map(run => {
+                  const scoreColor = run.totalScore 
+                    ? run.totalScore >= 70 ? 'text-green-600' 
+                    : run.totalScore >= 50 ? 'text-yellow-600' 
+                    : 'text-red-600'
+                    : 'text-gray-400'
+                  
+                  return (
+                    <motion.div
+                      key={run.runId}
+                      whileHover={{ scale: 1.02 }}
+                      className="card p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                      onClick={() => onStartAudit(run.runId)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <ExternalLink className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm font-medium text-gray-900 truncate">
+                              {run.url.replace(/^https?:\/\//, '')}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-4 mt-1">
+                            <span className="text-xs text-gray-500 flex items-center">
+                              <Clock className="w-3 h-3 mr-1" />
+                              {new Date(run.startedAt).toLocaleDateString('ko-KR')}
+                            </span>
+                            {run.status === 'completed' && run.elapsedMs && (
+                              <span className="text-xs text-gray-500">
+                                {(run.elapsedMs / 1000).toFixed(1)}초
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {run.status === 'completed' && run.totalScore !== undefined ? (
+                            <div className={`text-2xl font-bold ${scoreColor}`}>
+                              {run.totalScore}
+                            </div>
+                          ) : run.status === 'processing' ? (
+                            <div className="text-sm text-blue-600">처리중...</div>
+                          ) : run.status === 'failed' ? (
+                            <div className="text-sm text-red-600">실패</div>
+                          ) : (
+                            <div className="text-sm text-gray-400">대기중</div>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
 
           {/* Features */}
           <motion.div

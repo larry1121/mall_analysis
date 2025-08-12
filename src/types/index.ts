@@ -10,6 +10,10 @@ export interface AuditRun {
   totalScore?: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
+  screenshots?: {
+    main?: string;
+    actions?: string[];
+  };
 }
 
 export interface Evidence {

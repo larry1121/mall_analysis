@@ -89,7 +89,8 @@ async function processJob(job: Job<AuditJobData> | any): Promise<any> {
     await db.updateRun(runId, {
       status: 'completed',
       elapsedMs: result.elapsedMs,
-      totalScore: result.totalScore
+      totalScore: result.totalScore,
+      screenshots: result.screenshots
     });
 
     // 체크 결과 저장

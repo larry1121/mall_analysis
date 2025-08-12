@@ -7,7 +7,16 @@
       "Bash(npm run dev:*)",
       "Bash(npm run worker:*)",
       "Bash(source .env)",
-      "WebFetch(domain:docs.firecrawl.dev)"
+      "WebFetch(domain:docs.firecrawl.dev)",
+      "Bash(npm run build:*)",
+      "Bash(open http://localhost:5173)",
+      "Bash(curl:*)",
+      "Bash(brew services start:*)",
+      "Bash(redis-cli:*)",
+      "Bash(echo $TMPDIR)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

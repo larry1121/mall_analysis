@@ -53,6 +53,12 @@ export class FirecrawlClient {
 
       const data = await response.json();
       
+      console.log('Firecrawl API Response - screenshot:', data.screenshot ? 'present' : 'missing');
+      console.log('Firecrawl API Response - actions:', data.actions ? 'present' : 'missing');
+      if (data.actions) {
+        console.log('Actions screenshots count:', data.actions.screenshots?.length || 0);
+      }
+      
       return {
         success: true,
         data: this.normalizeResponse(data)
@@ -121,16 +127,22 @@ export class FirecrawlClient {
    * Firecrawl 응답 정규화
    */
   private normalizeResponse(rawData: any): FirecrawlResponse['data'] {
-    return {
-      html: rawData.html || '',
-      screenshot: rawData.screenshot || '',
-      links: rawData.links || [],
-      markdown: rawData.markdown || '',
+    // Firecrawl v1 API response structure
+    const result = {
+      html: rawData.data?.html || rawData.html || '',
+      screenshot: rawData.data?.screenshot || rawData.screenshot || '',
+      links: rawData.data?.links || rawData.links || [],
+      markdown: rawData.data?.markdown || rawData.markdown || '',
       actions: {
-        screenshots: rawData.actions?.screenshots || [],
-        urls: rawData.actions?.urls || []
+        screenshots: rawData.data?.actions?.screenshots || rawData.actions?.screenshots || [],
+        urls: rawData.data?.actions?.urls || rawData.actions?.urls || []
       }
     };
+    
+    console.log('Normalized response - screenshot:', result.screenshot ? 'present' : 'missing');
+    console.log('Normalized response - actions screenshots:', result.actions.screenshots.length);
+    
+    return result;
   }
 
   /**

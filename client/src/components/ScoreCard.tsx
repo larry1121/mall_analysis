@@ -93,11 +93,13 @@ export default function ScoreCard({ check }: ScoreCardProps) {
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <div className="text-xs font-medium text-gray-500 mb-2">측정값</div>
             <div className="space-y-1">
-              {Object.entries(check.metrics).slice(0, 3).map(([key, value]) => (
+              {Object.entries(check.metrics).filter(([_, value]) => value !== null && value !== undefined).slice(0, 3).map(([key, value]) => (
                 <div key={key} className="flex justify-between text-sm">
                   <span className="text-gray-600">{key}:</span>
                   <span className="font-medium text-gray-900">
-                    {typeof value === 'number' ? value.toFixed(2) : String(value)}
+                    {typeof value === 'number' 
+                      ? value > 0 ? value.toFixed(2) : '0.00'
+                      : String(value)}
                   </span>
                 </div>
               ))}
@@ -110,16 +112,27 @@ export default function ScoreCard({ check }: ScoreCardProps) {
           <div className="mb-4 p-3 bg-blue-50 rounded-lg">
             <div className="text-xs font-medium text-blue-700 mb-2">근거 데이터</div>
             <div className="space-y-1">
-              {Object.entries(check.evidence).slice(0, 3).map(([key, value]) => (
-                <div key={key} className="text-sm">
-                  <span className="text-gray-600">{key}:</span>
-                  <span className="ml-2 text-gray-900">
-                    {typeof value === 'object' 
-                      ? JSON.stringify(value, null, 2).substring(0, 50) + '...'
-                      : String(value)}
-                  </span>
-                </div>
-              ))}
+              {Object.entries(check.evidence).filter(([_, value]) => value !== null && value !== undefined).slice(0, 3).map(([key, value]) => {
+                let displayValue = '';
+                if (typeof value === 'object' && value !== null) {
+                  if (Array.isArray(value)) {
+                    displayValue = `${value.length}개 항목`;
+                  } else {
+                    const keys = Object.keys(value);
+                    displayValue = keys.length > 0 ? `${keys.join(', ')}` : '데이터 있음';
+                  }
+                } else {
+                  displayValue = String(value);
+                }
+                return (
+                  <div key={key} className="text-sm">
+                    <span className="text-gray-600">{key}:</span>
+                    <span className="ml-2 text-gray-900 truncate inline-block max-w-xs">
+                      {displayValue}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

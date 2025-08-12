@@ -156,6 +156,8 @@ export async function auditRoutes(fastify: FastifyInstance) {
     try {
       // DB에서 조회
       const result = await db.getRun(runId);
+      
+      fastify.log.info({ runId, result }, 'Fetched run from DB');
 
       if (!result) {
         return reply.status(404).send({
@@ -163,6 +165,12 @@ export async function auditRoutes(fastify: FastifyInstance) {
           message: 'Audit run not found'
         });
       }
+
+      // Date 객체를 ISO 문자열로 변환
+      const serializedResult = {
+        ...result,
+        startedAt: result.startedAt instanceof Date ? result.startedAt.toISOString() : result.startedAt
+      };
 
       // 진행 중인 경우 큐 상태 확인
       if (result.status === 'pending' || result.status === 'processing') {
@@ -172,20 +180,36 @@ export async function auditRoutes(fastify: FastifyInstance) {
           const progress = job.progress || 0;
           
           return reply.send({
-            ...result,
+            ...serializedResult,
             progress
           });
         }
+        // job이 없어도 result는 반환
+        return reply.type('application/json').send(JSON.stringify(serializedResult));
       }
 
       // 완료된 경우 전체 결과 반환
       if (result.status === 'completed') {
         const fullResult = await db.getFullResult(runId);
-        return reply.send(fullResult);
+        fastify.log.info({ runId, fullResult: !!fullResult }, 'Getting full result');
+        
+        if (fullResult) {
+          // Date 객체를 ISO 문자열로 변환
+          const serializedFullResult = {
+            ...fullResult,
+            startedAt: fullResult.startedAt instanceof Date ? fullResult.startedAt.toISOString() : fullResult.startedAt
+          };
+          fastify.log.info({ runId, serialized: serializedFullResult }, 'Sending serialized result');
+          return reply.type('application/json').send(JSON.stringify(serializedFullResult));
+        } else {
+          fastify.log.warn({ runId }, 'Full result not found, sending basic result');
+          return reply.send(serializedResult);
+        }
       }
 
-      // 실패한 경우
-      return reply.send(result);
+      // 실패한 경우 또는 기타 상태
+      fastify.log.info({ runId, status: result.status }, 'Returning basic result');
+      return reply.type('application/json').send(JSON.stringify(serializedResult));
 
     } catch (error) {
       fastify.log.error({ error, runId }, 'Failed to get audit status');
@@ -294,8 +318,14 @@ export async function auditRoutes(fastify: FastifyInstance) {
       const runs = await db.listRuns({ limit, offset, status });
       const total = await db.countRuns({ status });
 
+      // Date 객체를 ISO 문자열로 변환
+      const serializedRuns = runs.map(run => ({
+        ...run,
+        startedAt: run.startedAt instanceof Date ? run.startedAt.toISOString() : run.startedAt
+      }));
+
       return reply.send({
-        runs,
+        runs: serializedRuns,
         total,
         limit,
         offset,
