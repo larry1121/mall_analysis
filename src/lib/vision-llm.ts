@@ -57,7 +57,7 @@ export class VisionLLMGrader {
 
   constructor(
     apiKey?: string,
-    model: string = 'gpt-4o', // GPT-4o 사용
+    model: string = 'gpt-5', // gpt-5 사용
     maxRetries: number = 2
   ) {
     if (apiKey) {
@@ -82,15 +82,43 @@ export class VisionLLMGrader {
     
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
+        // 메시지 구성
+        const messages: any[] = [
+          { role: 'system', content: systemPrompt }
+        ];
+
+        if (this.model === 'gpt-5' && input.screenshots?.firstView) {
+          // GPT-5는 이미지를 content 배열로 전달
+          messages.push({
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              {
+                type: 'image_url',
+                image_url: { 
+                  url: input.screenshots.firstView,
+                  detail: 'high' // 고해상도 분석
+                }
+              }
+            ]
+          });
+        } else {
+          // 기존 모델은 텍스트만 전달
+          messages.push({ role: 'user', content: userPrompt });
+        }
+
+        // 디버깅: 이미지 URL 확인
+        if (this.model === 'gpt-5' && input.screenshots?.firstView) {
+          console.log('GPT-5 Image URL:', input.screenshots.firstView.substring(0, 200));
+          console.log('URL for analysis:', input.url);
+        }
+
         const response = await this.client.chat.completions.create({
           model: this.model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
+          messages,
           response_format: { type: 'json_object' },
-          temperature: 0.1,
-          max_completion_tokens: 4000
+          temperature: this.model === 'gpt-5' ? 1 : 0.3, // GPT-5는 1, 다른 모델은 0.3
+          max_tokens: 4000
         });
 
         const content = response.choices[0]?.message?.content;
@@ -99,7 +127,13 @@ export class VisionLLMGrader {
         }
 
         console.log('OpenAI response (first 500 chars):', content.substring(0, 500));
+        
         const parsed = JSON.parse(content);
+        
+        // 디버깅: firstView 응답 확인
+        if (parsed.scores?.firstView?.evidence?.promoTexts) {
+          console.log('GPT-5 detected promo texts:', JSON.stringify(parsed.scores.firstView.evidence.promoTexts));
+        }
         
         // Zod 검증
         const validated = LLMOutputSchema.parse(parsed);
@@ -164,12 +198,17 @@ export class VisionLLMGrader {
 - 플랫폼: ${input.platform || 'unknown'}
 - 스크린샷: ${input.screenshots.actions?.length || 0}개 액션 후 캡처 포함
 
+⚠️ 중요: 반드시 ${input.url} 사이트의 실제 콘텐츠만 분석하세요.
+- 제공된 스크린샷과 HTML은 모두 ${input.url}의 것입니다
+- 다른 사이트의 프로모션이나 콘텐츠를 언급하지 마세요
+- 실제로 보이는 것만 근거로 평가하세요
+
 한국어 키워드:
 ${JSON.stringify(koreanKeywords, null, 2)}
 
 입력 데이터:
 - HTML 길이: ${input.html.length} 글자
-- 퍼스트뷰 스크린샷: 제공됨
+- 퍼스트뷰 스크린샷: 제공됨 (${input.url}의 모바일 화면)
 - 액션 스크린샷: ${input.screenshots.actions?.join(', ') || '없음'}
 
 평가 항목별 채점 기준:
@@ -236,10 +275,13 @@ ${input.html.substring(0, 50000)}
 \`\`\`
 
 지시사항:
-1. 각 항목을 신중히 평가
+1. 각 항목을 신중히 평가 (해당 URL의 실제 콘텐츠 기반)
 2. 모든 점수에 대한 evidence 제공 (bbox, selector, text 중 하나 이상)
+   - evidence는 실제로 스크린샷/HTML에서 확인한 것만 포함
+   - 추측이나 일반적인 내용 금지
 3. insights는 구체적 개선점 1-3개
 4. 정확한 JSON 형식으로만 응답
+5. 프로모션 문구는 실제로 해당 사이트에 있는 것만 언급
 
 응답 형식:
 {
@@ -479,7 +521,7 @@ ${input.html.substring(0, 50000)}
 export function createVisionLLMGrader(): VisionLLMGrader {
   const provider = process.env.LLM_PROVIDER || 'openai';
   const apiKey = process.env.LLM_API_KEY;
-  const model = process.env.LLM_MODEL || 'gpt-4o'; // GPT-4o 사용
+  const model = process.env.LLM_MODEL || 'gpt-5'; // gpt-5 사용
 
   if (!apiKey && process.env.NODE_ENV !== 'test') {
     console.warn('LLM_API_KEY not provided, using mock grader');
