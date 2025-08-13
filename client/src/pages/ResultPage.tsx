@@ -6,6 +6,7 @@ import axios from 'axios'
 import ScoreCard from '../components/ScoreCard'
 import ScoreChart from '../components/ScoreChart'
 import LoadingScreen from '../components/LoadingScreen'
+import ScreenshotGallery from '../components/ScreenshotGallery'
 
 interface ResultPageProps {
   runId: string
@@ -296,39 +297,15 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
           </div>
         </motion.div>
 
-        {/* Screenshots Section */}
-        {data.screenshots && (data.screenshots.main || data.screenshots.actions?.length > 0) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="card p-6 mb-8"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">페이지 스크린샷</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data.screenshots.main && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">메인 페이지</h4>
-                  <img 
-                    src={data.screenshots.main} 
-                    alt="Main page screenshot" 
-                    className="w-full rounded-lg border border-gray-200 shadow-sm"
-                  />
-                </div>
-              )}
-              {data.screenshots.actions?.map((screenshot, index) => (
-                <div key={index}>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">액션 {index + 1}</h4>
-                  <img 
-                    src={screenshot} 
-                    alt={`Action ${index + 1} screenshot`} 
-                    className="w-full rounded-lg border border-gray-200 shadow-sm"
-                  />
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
+        {/* Screenshots Gallery */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="card p-6 mb-8"
+        >
+          <ScreenshotGallery runId={runId} screenshots={data.screenshots} />
+        </motion.div>
 
         {/* Purchase Flow */}
         {data.purchaseFlow && (

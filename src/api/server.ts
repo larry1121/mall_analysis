@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { auditRoutes } from './routes/audit.js';
 import { healthRoutes } from './routes/health.js';
+import { screenshotRoutes } from './routes/screenshots.js';
 import { setupDatabase } from '../utils/database.js';
 import { setupQueue } from '../utils/queue.js';
 
@@ -52,6 +53,13 @@ export async function createServer() {
     constraints: {} // 다른 라우트와 충돌 방지
   });
 
+  // 스크린샷 이미지 정적 파일 서빙
+  await fastify.register(fastifyStatic, {
+    root: join(__dirname, '../../screenshots'),
+    prefix: '/api/screenshots/',
+    decorateReply: false // reply.sendFile already registered
+  });
+
   // 에러 핸들러
   fastify.setErrorHandler((error, request, reply) => {
     fastify.log.error(error);
@@ -82,6 +90,7 @@ export async function createServer() {
   // 라우트 등록
   await fastify.register(healthRoutes, { prefix: '/api/health' });
   await fastify.register(auditRoutes, { prefix: '/api/audit' });
+  await fastify.register(screenshotRoutes, { prefix: '/api/screenshots' });
 
   // Graceful shutdown
   const closeGracefully = async (signal: string) => {
@@ -125,6 +134,7 @@ export async function startServer() {
 📍 URL: http://${host}:${port}
 📊 Health: http://${host}:${port}/api/health
 🔍 Audit: POST http://${host}:${port}/api/audit
+🖼️  Screenshots: http://${host}:${port}/api/screenshots/
     `);
 
     return server;

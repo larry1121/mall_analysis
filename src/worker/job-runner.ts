@@ -6,6 +6,7 @@ import { createScorer, Scorer } from '../lib/scorer.js';
 import { Reporter } from '../lib/reporter.js';
 import { getStorage } from '../utils/storage.js';
 import * as cvUtils from '../lib/cv-utils.js';
+import { getPuppeteerScreenshot, PuppeteerScreenshot } from '../lib/puppeteer-screenshot.js';
 
 export async function runAudit(
   url: string,
@@ -16,37 +17,70 @@ export async function runAudit(
   const storage = await getStorage();
   
   let firecrawlData: any = null;
+  let screenshotData: any = null;
   let lighthouseData: any = null;
   let llmOutput: any = null;
   let finalResult: AuditResult;
 
   try {
-    // 1. Firecrawl 데이터 수집 (30%)
-    await updateProgress(10, 'Starting web scraping...');
+    // 1. Screenshot with Puppeteer & HTML 데이터 수집 (30%)
+    await updateProgress(10, 'Starting web scraping and screenshot capture...');
     
+    // Platform detection
+    const platform = FirecrawlClient.detectPlatform(url);
+    await updateProgress(15, `Platform detected: ${platform}`);
+    
+    // Puppeteer screenshot capture
+    const puppeteer = getPuppeteerScreenshot('./screenshots');
+    const screenshotResult = await puppeteer.capture(url, {
+      fullPage: true,
+      waitFor: 3000,
+      viewport: {
+        width: 375,
+        height: 812,
+        isMobile: true,
+        deviceScaleFactor: 2
+      }
+    });
+    
+    if (screenshotResult.success) {
+      screenshotData = {
+        screenshot: screenshotResult.screenshot,
+        localPath: screenshotResult.localPath,
+        metadata: screenshotResult.metadata
+      };
+      console.log('Screenshot captured successfully:', screenshotResult.localPath);
+    } else {
+      console.error('Screenshot capture failed:', screenshotResult.error);
+    }
+    
+    // Firecrawl for HTML data (optional, fallback to basic HTML)
     let firecrawlClient: FirecrawlClient | null = null;
-    
-    console.log('FIRECRAWL_API_KEY exists:', !!process.env.FIRECRAWL_API_KEY);
-    console.log('FIRECRAWL_API_KEY first 10 chars:', process.env.FIRECRAWL_API_KEY?.substring(0, 10));
     
     if (process.env.FIRECRAWL_API_KEY) {
       firecrawlClient = createFirecrawlClient();
-      const platform = FirecrawlClient.detectPlatform(url);
-      
-      await updateProgress(15, `Platform detected: ${platform}`);
-      
       const response = await firecrawlClient.scrapeWithFallback(url, platform);
       
       if (response.success && response.data) {
         firecrawlData = response.data;
+        // Use Puppeteer screenshot instead of Firecrawl's
+        if (screenshotData?.screenshot) {
+          firecrawlData.screenshot = screenshotData.screenshot;
+        }
         await updateProgress(30, 'Web scraping completed');
       } else {
         console.warn('Firecrawl failed, using basic HTML fetch');
         firecrawlData = await fetchBasicHTML(url);
+        if (screenshotData?.screenshot) {
+          firecrawlData.screenshot = screenshotData.screenshot;
+        }
       }
     } else {
       console.warn('Firecrawl API key not configured, using basic fetch');
       firecrawlData = await fetchBasicHTML(url);
+      if (screenshotData?.screenshot) {
+        firecrawlData = { ...firecrawlData, screenshot: screenshotData.screenshot };
+      }
       await updateProgress(30, 'Basic HTML fetch completed');
     }
 
@@ -102,8 +136,9 @@ export async function runAudit(
       platform: firecrawlData ? FirecrawlClient.detectPlatform(url, firecrawlData.html, firecrawlData.links) : 'unknown',
       html: firecrawlData?.html || '',
       screenshots: {
-        firstView: firecrawlData?.screenshot || '',
-        actions: firecrawlData?.actions?.screenshots || []
+        firstView: screenshotData?.screenshot || firecrawlData?.screenshot || '',
+        actions: firecrawlData?.actions?.screenshots || [],
+        localPath: screenshotData?.localPath
       }
     };
 

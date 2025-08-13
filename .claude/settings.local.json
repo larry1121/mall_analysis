@@ -17,7 +17,11 @@
       "Bash(cat:*)",
       "Bash(grep:*)",
       "Bash(npx tsc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx vite:*)",
+      "Bash(echo:*)",
+      "Bash(open http://localhost:3000)"
     ],
     "deny": [],
     "ask": []

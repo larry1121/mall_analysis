@@ -61,7 +61,7 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 # Create necessary directories
-RUN mkdir -p /app/tmp /app/reports && \
+RUN mkdir -p /app/tmp /app/reports /app/screenshots && \
     chown -R nodejs:nodejs /app
 
 USER nodejs

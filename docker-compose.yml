@@ -72,6 +72,7 @@ services:
       - ./client/src:/app/client/src
       - ./config:/app/config
       - ./public:/app/public
+      - ./screenshots:/app/screenshots
     ports:
       - "3000:3000"
       - "5173:5173"
@@ -108,6 +109,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./config:/app/config
+      - ./screenshots:/app/screenshots
     depends_on:
       postgres:
         condition: service_healthy
