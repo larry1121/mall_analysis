@@ -41,6 +41,7 @@ export interface PurchaseFlowStep {
 
 export interface AuditResult extends AuditRun {
   checks: CheckResult[];
+  expertSummary?: ExpertSummary;
   purchaseFlow?: {
     ok: boolean;
     steps: PurchaseFlowStep[];
@@ -112,8 +113,17 @@ export interface LLMGraderInput {
   };
 }
 
+export interface ExpertSummary {
+  grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
+  headline: string;
+  strengths: string[];
+  weaknesses: string[];
+  priorities: string[];
+}
+
 export interface LLMGraderOutput {
   url: string;
+  expertSummary?: ExpertSummary;
   scores: {
     speed: CheckResult;
     firstView: CheckResult;

@@ -26,6 +26,13 @@ const PurchaseFlowStepSchema = z.object({
 
 const LLMOutputSchema = z.object({
   url: z.string(),
+  expertSummary: z.object({
+    grade: z.enum(['S', 'A', 'B', 'C', 'D', 'F']),
+    headline: z.string(),
+    strengths: z.array(z.string()),
+    weaknesses: z.array(z.string()),
+    priorities: z.array(z.string())
+  }).optional(),
   scores: z.object({
     speed: CheckResultSchema,
     firstView: CheckResultSchema,
@@ -117,9 +124,10 @@ export class VisionLLMGrader {
    * 시스템 프롬프트 구성
    */
   private buildSystemPrompt(): string {
-    return `당신은 한국 전자상거래 첫 페이지를 평가하는 전문 그레이더입니다.
+    return `당신은 15년 이상 경력의 한국 이커머스 최적화 전문가입니다.
 
 역할:
+- 시니어 전문가로서 전체적인 총평 제공
 - 모바일 스크린샷과 HTML을 분석하여 10개 항목을 평가
 - 각 항목 10점 만점으로 채점
 - 모든 판단은 증거 기반 (bbox 좌표 또는 HTML 셀렉터/텍스트 인용)
@@ -131,6 +139,7 @@ export class VisionLLMGrader {
 3. HTML 요소는 셀렉터와 텍스트 인용
 4. 한국어 키워드 우선 인식
 5. 모바일 사용성 중심 평가
+6. 비즈니스 관점에서 실질적 개선점 제시
 
 출력:
 - 정확한 JSON 형식만 반환
@@ -235,6 +244,25 @@ ${input.html.substring(0, 50000)}
 응답 형식:
 {
   "url": "평가한 URL",
+  "expertSummary": {
+    "grade": "S/A/B/C/D/F 중 하나 (S=90+, A=80+, B=70+, C=60+, D=50+, F=50미만)",
+    "headline": "한 줄 총평 (예: '기본기는 갖춰졌으나 전환율 개선 여지가 많은 사이트')",
+    "strengths": [
+      "강점 1 (가장 잘된 점)",
+      "강점 2",
+      "강점 3"
+    ],
+    "weaknesses": [
+      "약점 1 (가장 심각한 문제)",
+      "약점 2",
+      "약점 3"
+    ],
+    "priorities": [
+      "최우선 개선사항 (ROI가 가장 높은 것)",
+      "차순위 개선사항",
+      "장기 개선사항"
+    ]
+  },
   "scores": {
     "speed": {
       "score": 0-10,
@@ -323,6 +351,25 @@ ${input.html.substring(0, 50000)}
   async gradeMock(input: LLMGraderInput): Promise<LLMGraderOutput> {
     return {
       url: input.url,
+      expertSummary: {
+        grade: 'B',
+        headline: '기본기는 갖춰졌으나 전환율 개선 여지가 많은 사이트',
+        strengths: [
+          '모바일 사용성이 우수하고 네비게이션이 직관적',
+          '주요 CTA가 퍼스트뷰에 잘 배치됨',
+          '기본적인 SEO 및 분석 도구가 설치됨'
+        ],
+        weaknesses: [
+          '페이지 로드 속도가 느림 (LCP 2.8초)',
+          '팝업이 너무 많아 사용자 경험 저해',
+          'USP와 프로모션 메시지가 약함'
+        ],
+        priorities: [
+          '이미지 최적화로 LCP 2.5초 이하로 개선',
+          '팝업 수 제한 및 사용자 경험 개선',
+          'USP 강화 및 프로모션 메시지 입체화'
+        ]
+      },
       scores: {
         speed: {
           id: 'speed',

@@ -51,7 +51,8 @@ export class FileDatabase {
         ...updates,
         checks: current.checks || [],
         flowSteps: current.flowSteps || [],
-        screenshots: updates.screenshots || current.screenshots
+        screenshots: updates.screenshots || current.screenshots,
+        expertSummary: (updates as any).expertSummary || current.expertSummary
       };
       await fs.writeFile(path, JSON.stringify(updated, null, 2));
     } catch (error) {
@@ -78,7 +79,8 @@ export class FileDatabase {
         startedAt: parsed.startedAt,
         elapsedMs: parsed.elapsedMs,
         totalScore: parsed.totalScore,
-        error: parsed.error
+        error: parsed.error,
+        screenshots: parsed.screenshots
       };
       
       console.log(`[FileDB] getRun(${runId}) returning:`, result);
@@ -111,6 +113,7 @@ export class FileDatabase {
         totalScore: parsed.totalScore,
         error: parsed.error,
         checks: parsed.checks || [],
+        expertSummary: parsed.expertSummary || undefined,
         purchaseFlow: parsed.flowSteps && parsed.flowSteps.length > 0 ? {
           ok: true,
           steps: parsed.flowSteps

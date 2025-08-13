@@ -16,7 +16,8 @@
       "Bash(echo $TMPDIR)",
       "Bash(cat:*)",
       "Bash(grep:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

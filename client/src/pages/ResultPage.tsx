@@ -12,12 +12,21 @@ interface ResultPageProps {
   onBack: () => void
 }
 
+interface ExpertSummary {
+  grade: 'S' | 'A' | 'B' | 'C' | 'D' | 'F'
+  headline: string
+  strengths: string[]
+  weaknesses: string[]
+  priorities: string[]
+}
+
 interface AuditResult {
   runId: string
   url: string
   status: string
   totalScore?: number
   checks?: any[]
+  expertSummary?: ExpertSummary
   purchaseFlow?: any
   screenshots?: {
     main?: string
@@ -37,16 +46,25 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
     ['audit', runId],
     async () => {
       const response = await axios.get(`/api/audit/${runId}`)
+      // API가 빈 객체를 반환하면 404 에러로 처리
+      if (response.data && Object.keys(response.data).length === 0) {
+        throw new Error('Not found')
+      }
       return response.data
     },
     {
       refetchInterval: (data) => {
-        // 진행 중이면 2초마다 리페치
-        if (data?.status === 'pending' || data?.status === 'processing') {
+        // 진행 중이거나 데이터가 없으면 2초마다 리페치
+        if (!data || data?.status === 'pending' || data?.status === 'processing') {
           return 2000
         }
         return false
-      }
+      },
+      // 항상 최신 데이터를 가져오도록 설정
+      cacheTime: 0,
+      staleTime: 0,
+      retry: 3,
+      retryDelay: 1000
     }
   )
 
@@ -111,13 +129,18 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
     return 'score-critical'
   }
 
-  // 로딩 중이거나 처리 중
-  if (isLoading || !data || data.status === 'pending' || data.status === 'processing') {
-    return <LoadingScreen progress={data?.progress} status={data?.status} />
+  // 로딩 중 또는 데이터가 없는 경우 (새로운 분석 시작)
+  if (isLoading || !data || error) {
+    return <LoadingScreen progress={0} status="pending" />
   }
 
-  // 에러
-  if (error || data.status === 'failed') {
+  // 처리 중 (pending 또는 processing)
+  if (data.status === 'pending' || data.status === 'processing') {
+    return <LoadingScreen progress={data?.progress || 0} status={data?.status} />
+  }
+
+  // 분석 실패
+  if (data.status === 'failed') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -130,6 +153,11 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
         </div>
       </div>
     )
+  }
+
+  // 완료되었지만 데이터가 없는 경우 처리
+  if (data.status === 'completed' && (!data.totalScore && !data.checks)) {
+    return <LoadingScreen progress={90} status="processing" />
   }
 
   const totalScore = data.totalScore || 0
@@ -178,6 +206,70 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Expert Summary */}
+        {data.expertSummary && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="card p-6 mb-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-indigo-200"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">시니어 전문가 총평</h2>
+                <p className="text-lg text-gray-700">{data.expertSummary.headline}</p>
+              </div>
+              <div className={`px-4 py-2 rounded-lg font-bold text-lg ${
+                data.expertSummary.grade === 'S' ? 'bg-purple-100 text-purple-700' :
+                data.expertSummary.grade === 'A' ? 'bg-green-100 text-green-700' :
+                data.expertSummary.grade === 'B' ? 'bg-blue-100 text-blue-700' :
+                data.expertSummary.grade === 'C' ? 'bg-yellow-100 text-yellow-700' :
+                data.expertSummary.grade === 'D' ? 'bg-orange-100 text-orange-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                Grade {data.expertSummary.grade}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <div>
+                <h3 className="font-semibold text-green-700 mb-2">💪 강점</h3>
+                <ul className="space-y-1">
+                  {data.expertSummary.strengths.map((strength, i) => (
+                    <li key={i} className="text-sm text-gray-700 flex items-start">
+                      <span className="text-green-500 mr-2">✓</span>
+                      {strength}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-red-700 mb-2">⚠️ 개선점</h3>
+                <ul className="space-y-1">
+                  {data.expertSummary.weaknesses.map((weakness, i) => (
+                    <li key={i} className="text-sm text-gray-700 flex items-start">
+                      <span className="text-red-500 mr-2">•</span>
+                      {weakness}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-indigo-700 mb-2">🎯 우선순위</h3>
+                <ul className="space-y-1">
+                  {data.expertSummary.priorities.map((priority, i) => (
+                    <li key={i} className="text-sm text-gray-700 flex items-start">
+                      <span className="text-indigo-500 mr-2">{i + 1}.</span>
+                      {priority}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Score Hero */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

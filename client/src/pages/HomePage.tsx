@@ -182,9 +182,17 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
                   return (
                     <motion.div
                       key={run.runId}
-                      whileHover={{ scale: 1.02 }}
-                      className="card p-4 cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => onStartAudit(run.runId)}
+                      whileHover={{ scale: run.status === 'completed' ? 1.02 : 1 }}
+                      className={`card p-4 transition-shadow ${
+                        run.status === 'completed' 
+                          ? 'cursor-pointer hover:shadow-lg' 
+                          : 'cursor-not-allowed opacity-75'
+                      }`}
+                      onClick={() => {
+                        if (run.status === 'completed') {
+                          onStartAudit(run.runId)
+                        }
+                      }}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">

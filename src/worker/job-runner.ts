@@ -185,6 +185,7 @@ export async function runAudit(
         evidence: score.evidence,
         insights: score.insights || []
       })),
+      expertSummary: llmOutput.expertSummary || undefined,
       purchaseFlow: llmOutput.scores.purchaseFlow?.steps ? {
         ok: llmOutput.scores.purchaseFlow.ok,
         steps: llmOutput.scores.purchaseFlow.steps

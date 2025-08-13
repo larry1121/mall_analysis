@@ -6,10 +6,10 @@ export class FirecrawlClient {
   private apiBase: string;
   private timeout: number;
 
-  constructor(apiKey: string, apiBase: string = 'https://api.firecrawl.dev/v1', timeout: number = 30000) {
+  constructor(apiKey: string, apiBase: string = 'https://api.firecrawl.dev/v1', timeout: number = 60000) {
     this.apiKey = apiKey;
     this.apiBase = apiBase;
-    this.timeout = timeout;
+    this.timeout = timeout; // 기본 60초로 증가 (충분한 여유)
   }
 
   /**
@@ -20,14 +20,11 @@ export class FirecrawlClient {
     
     const request: FirecrawlRequest = {
       url,
-      formats: ['html', 'screenshot', 'links', 'markdown'],
-      waitFor: 1500,
+      formats: ['html', 'screenshot'], // 필수 format만 요청 (부담 경감)
+      waitFor: 2000, // 적절한 대기 시간
       timeout: this.timeout,
-      location: {
-        country: 'KR',
-        languages: ['ko-KR']
-      },
-      actions
+      onlyMainContent: false, // 전체 컨텐츠
+      actions // 스크린샷만
     };
 
     try {
@@ -53,10 +50,15 @@ export class FirecrawlClient {
 
       const data = await response.json();
       
-      console.log('Firecrawl API Response - screenshot:', data.screenshot ? 'present' : 'missing');
-      console.log('Firecrawl API Response - actions:', data.actions ? 'present' : 'missing');
-      if (data.actions) {
-        console.log('Actions screenshots count:', data.actions.screenshots?.length || 0);
+      // Firecrawl v1 API 응답 로깅
+      console.log('Firecrawl raw response has data?:', !!data.data);
+      console.log('Firecrawl raw response has screenshot?:', !!data.screenshot);
+      
+      // 스크린샷 확인 - data 또는 루트에 있을 수 있음
+      const screenshot = data.data?.screenshot || data.screenshot;
+      console.log('Screenshot found:', !!screenshot);
+      if (screenshot) {
+        console.log('Screenshot URL (first 100 chars):', screenshot.substring(0, 100) + '...');
       }
       
       return {
@@ -87,10 +89,9 @@ export class FirecrawlClient {
    * 플랫폼별 액션 시퀀스 구성
    */
   private buildActions(platform?: 'cafe24' | 'imweb' | 'unknown'): FirecrawlAction[] {
-    // 간단한 액션만 사용 (복잡한 액션은 실패 가능성 높음)
+    // 스크린샷 수집 (최소한의 액션만 - 타임아웃 방지)
     const baseActions: FirecrawlAction[] = [
-      { type: 'wait', milliseconds: 1000 },
-      { type: 'screenshot' }
+      { type: 'screenshot' } // 스크린샷만 - waitFor에서 충분히 대기
     ];
 
     // 플랫폼별 셀렉터 우선순위
@@ -127,10 +128,13 @@ export class FirecrawlClient {
    * Firecrawl 응답 정규화
    */
   private normalizeResponse(rawData: any): FirecrawlResponse['data'] {
-    // Firecrawl v1 API response structure
+    // Firecrawl v1 API response - 다양한 구조 처리
+    const screenshot = rawData.data?.screenshot || rawData.screenshot || rawData.data || '';
+    const html = rawData.data?.html || rawData.html || rawData.content || '';
+    
     const result = {
-      html: rawData.data?.html || rawData.html || '',
-      screenshot: rawData.data?.screenshot || rawData.screenshot || '',
+      html: html,
+      screenshot: screenshot,
       links: rawData.data?.links || rawData.links || [],
       markdown: rawData.data?.markdown || rawData.markdown || '',
       actions: {
@@ -140,7 +144,9 @@ export class FirecrawlClient {
     };
     
     console.log('Normalized response - screenshot:', result.screenshot ? 'present' : 'missing');
-    console.log('Normalized response - actions screenshots:', result.actions.screenshots.length);
+    if (result.screenshot && typeof result.screenshot === 'string') {
+      console.log('Screenshot URL preview:', result.screenshot.substring(0, 100));
+    }
     
     return result;
   }
@@ -152,28 +158,23 @@ export class FirecrawlClient {
     // 먼저 전체 액션으로 시도
     let result = await this.scrape(url, platform);
     
-    // 액션이 실패했거나 스크린샷이 부족한 경우 폴백
-    if (!result.success || !result.data?.actions?.screenshots?.length) {
+    // 실패했거나 스크린샷이 없는 경우 폴백
+    if (!result.success || !result.data?.screenshot) {
       console.log('Primary scrape failed or incomplete, trying fallback...');
       if (!result.success) {
         console.log('Firecrawl error:', result.error);
+      } else if (!result.data?.screenshot) {
+        console.log('No screenshot captured');
       }
       
-      // 최소 액션으로 재시도
+      // 최소 요청으로 재시도 (스크린샷 포커스)
       const fallbackRequest: FirecrawlRequest = {
         url,
-        formats: ['html', 'markdown'],
-        mobile: true,
-        waitFor: 2000,
+        formats: ['screenshot'], // 스크린샷만 요청
+        waitFor: 3000, // 충분한 대기
         timeout: this.timeout,
-        onlyMainContent: false,
-        location: {
-          country: 'KR',
-          languages: ['ko-KR']
-        },
         actions: [
-          { type: 'wait', milliseconds: 1500 },
-          { type: 'screenshot' }
+          { type: 'screenshot' } // 스크린샷만
         ]
       };
 
