@@ -30,18 +30,24 @@ export async function runAudit(
     const platform = FirecrawlClient.detectPlatform(url);
     await updateProgress(15, `Platform detected: ${platform}`);
     
-    // Puppeteer screenshot capture
+    // Puppeteer screenshot capture with cleanup
     const puppeteer = getPuppeteerScreenshot('./screenshots');
-    const screenshotResult = await puppeteer.capture(url, {
-      fullPage: true,
-      waitFor: 3000,
-      viewport: {
-        width: 375,
-        height: 812,
-        isMobile: true,
-        deviceScaleFactor: 2
-      }
-    });
+    let screenshotResult;
+    try {
+      screenshotResult = await puppeteer.capture(url, {
+        fullPage: true,
+        waitFor: 3000,
+        viewport: {
+          width: 375,
+          height: 812,
+          isMobile: true,
+          deviceScaleFactor: 2
+        }
+      });
+    } finally {
+      // Always cleanup browser instance
+      await puppeteer.cleanup();
+    }
     
     if (screenshotResult.success) {
       screenshotData = {

@@ -47,21 +47,30 @@ export class PuppeteerScreenshot {
   }
 
   async initialize(): Promise<void> {
-    if (!this.browser) {
-      this.browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process',
-          '--disable-gpu'
-        ]
-      });
+    // Always create a new browser instance to avoid connection issues
+    if (this.browser) {
+      try {
+        await this.browser.close();
+      } catch (e) {
+        console.log('Failed to close existing browser:', e);
+      }
     }
+    
+    this.browser = await puppeteer.launch({
+      headless: 'new', // Use new headless mode
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding'
+      ]
+    });
 
     // Ensure screenshot directory exists
     await fs.mkdir(this.screenshotDir, { recursive: true });
@@ -92,11 +101,14 @@ export class PuppeteerScreenshot {
   }
 
   private async captureWithRetry(url: string, config: ScreenshotConfig): Promise<ScreenshotResult> {
+    // Always reinitialize browser for each capture to avoid connection issues
+    await this.initialize();
+
     if (!this.browser) {
-      await this.initialize();
+      throw new Error('Failed to initialize browser');
     }
 
-    const page = await this.browser!.newPage();
+    const page = await this.browser.newPage();
 
     try {
       // Set viewport
@@ -307,26 +319,9 @@ export class PuppeteerScreenshot {
   }
 }
 
-// Singleton instance
-let instance: PuppeteerScreenshot | null = null;
-
+// Return new instance each time to avoid connection issues
 export function getPuppeteerScreenshot(screenshotDir?: string): PuppeteerScreenshot {
-  if (!instance) {
-    instance = new PuppeteerScreenshot(screenshotDir);
-  }
-  return instance;
+  return new PuppeteerScreenshot(screenshotDir);
 }
 
-// Cleanup on process exit
-process.on('exit', async () => {
-  if (instance) {
-    await instance.cleanup();
-  }
-});
-
-process.on('SIGINT', async () => {
-  if (instance) {
-    await instance.cleanup();
-  }
-  process.exit(0);
-});
+// No singleton instance to clean up anymore
