@@ -76,7 +76,7 @@ export class PuppeteerScreenshot {
     await fs.mkdir(this.screenshotDir, { recursive: true });
   }
 
-  async capture(url: string, config: ScreenshotConfig = {}): Promise<ScreenshotResult> {
+  async capture(url: string, config: ScreenshotConfig = {}): Promise<ScreenshotResult & { html?: string }> {
     let retries = 0;
     let lastError: Error | null = null;
 
@@ -140,6 +140,15 @@ export class PuppeteerScreenshot {
         await this.executeActions(page, config.actions);
       }
 
+      // Wait for content to be fully loaded
+      await page.waitForSelector('body', { timeout: 10000 });
+      
+      // Additional wait for dynamic content
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Capture full HTML after rendering
+      const fullHTML = await page.content();
+      
       // Take screenshot
       const screenshotOptions: ScreenshotOptions = {
         fullPage: config.fullPage !== false,
@@ -166,11 +175,13 @@ export class PuppeteerScreenshot {
         success: true,
         screenshot: dataUri,
         localPath,
+        html: fullHTML, // Include full rendered HTML
         metadata: {
           url,
           timestamp: Date.now(),
           viewport: { width: viewport.width, height: viewport.height },
-          fullPage: config.fullPage !== false
+          fullPage: config.fullPage !== false,
+          htmlLength: fullHTML.length
         }
       };
     } catch (error) {

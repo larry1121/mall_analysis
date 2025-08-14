@@ -53,9 +53,11 @@ export async function runAudit(
       screenshotData = {
         screenshot: screenshotResult.screenshot,
         localPath: screenshotResult.localPath,
-        metadata: screenshotResult.metadata
+        metadata: screenshotResult.metadata,
+        html: screenshotResult.html // Use Puppeteer's rendered HTML
       };
       console.log('Screenshot captured successfully:', screenshotResult.localPath);
+      console.log('HTML captured length:', screenshotResult.html?.length || 0);
     } else {
       console.error('Screenshot capture failed:', screenshotResult.error);
     }
@@ -137,10 +139,13 @@ export async function runAudit(
     
     const grader = createVisionLLMGrader();
     
+    // Use Puppeteer HTML if available, otherwise fall back to Firecrawl
+    const htmlContent = screenshotData?.html || firecrawlData?.html || '';
+    
     const graderInput: LLMGraderInput = {
       url,
-      platform: firecrawlData ? FirecrawlClient.detectPlatform(url, firecrawlData.html, firecrawlData.links) : 'unknown',
-      html: firecrawlData?.html || '',
+      platform: FirecrawlClient.detectPlatform(url, htmlContent, firecrawlData?.links),
+      html: htmlContent,
       screenshots: {
         firstView: screenshotData?.screenshot || firecrawlData?.screenshot || '',
         actions: firecrawlData?.actions?.screenshots || [],
@@ -151,15 +156,24 @@ export async function runAudit(
     // LLM 그레이딩 또는 Mock
     console.log('LLM_API_KEY exists:', !!process.env.LLM_API_KEY);
     console.log('LLM_API_KEY first 10 chars:', process.env.LLM_API_KEY?.substring(0, 10));
+    console.log('LLM_MODEL:', process.env.LLM_MODEL);
     
     if (process.env.LLM_API_KEY) {
       try {
         console.log('Attempting to call OpenAI API...');
+        console.log('Model being used:', process.env.LLM_MODEL || 'gpt-5');
+        const startTime = Date.now();
         llmOutput = await grader.grade(graderInput);
+        const endTime = Date.now();
         console.log('OpenAI API call successful');
+        console.log('Processing time:', endTime - startTime, 'ms');
+        if (llmOutput.metadata) {
+          console.log('Model metadata:', JSON.stringify(llmOutput.metadata));
+        }
         await updateProgress(70, 'AI analysis completed');
       } catch (error) {
         console.error('LLM grading failed, using mock:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
         llmOutput = await grader.gradeMock(graderInput);
       }
     } else {

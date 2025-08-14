@@ -26,7 +26,10 @@ export async function startWorker() {
       {
         connection,
         concurrency: parseInt(process.env.WORKER_CONCURRENCY || '2', 10),
-        autorun: true
+        autorun: true,
+        lockDuration: 600000, // 10분 lock duration
+        stalledInterval: 600000, // 10분 stalled check
+        maxStalledCount: 0 // stalled 무시
       }
     );
 

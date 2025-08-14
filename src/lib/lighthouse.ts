@@ -22,51 +22,74 @@ export interface LighthouseResult {
 export class LighthouseRunner {
   private timeout: number;
 
-  constructor(timeout: number = 40000) {
+  constructor(timeout: number = 60000) { // Increase default timeout to 60s
     this.timeout = timeout;
   }
 
   /**
-   * Lighthouse CLI 실행 및 결과 파싱
+   * Lighthouse CLI 실행 및 결과 파싱 (with retry logic)
    */
   async run(options: LighthouseOptions): Promise<LighthouseResult> {
-    const outputPath = join(tmpdir(), `lighthouse-${uuidv4()}.json`);
+    const maxRetries = 2;
+    let lastError: Error | null = null;
     
-    try {
-      // Lighthouse CLI 명령어 구성
-      const args = this.buildArgs(options.url, outputPath, options);
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const outputPath = join(tmpdir(), `lighthouse-${uuidv4()}.json`);
       
-      // CLI 실행
-      const exitCode = await this.executeLighthouse(args);
-      
-      if (exitCode !== 0) {
-        throw new Error(`Lighthouse exited with code ${exitCode}`);
+      try {
+        console.log(`Lighthouse attempt ${attempt + 1}/${maxRetries + 1} for ${options.url}`);
+        
+        // Lighthouse CLI 명령어 구성
+        const args = this.buildArgs(options.url, outputPath, options);
+        
+        // CLI 실행
+        const exitCode = await this.executeLighthouse(args);
+        
+        if (exitCode !== 0) {
+          throw new Error(`Lighthouse exited with code ${exitCode}`);
+        }
+
+        // 결과 파일 읽기
+        const rawJson = await fs.readFile(outputPath, 'utf-8');
+        const data = JSON.parse(rawJson);
+
+        // 메트릭 추출
+        const metrics = this.extractMetrics(data);
+
+        // 정리
+        await fs.unlink(outputPath).catch(() => {});
+
+        console.log(`Lighthouse succeeded for ${options.url}`);
+        return {
+          success: true,
+          metrics,
+          rawData: data
+        };
+      } catch (error) {
+        // 정리
+        await fs.unlink(outputPath).catch(() => {});
+        
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        console.error(`Lighthouse attempt ${attempt + 1} failed:`, lastError.message);
+        
+        if (attempt < maxRetries) {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        }
       }
-
-      // 결과 파일 읽기
-      const rawJson = await fs.readFile(outputPath, 'utf-8');
-      const data = JSON.parse(rawJson);
-
-      // 메트릭 추출
-      const metrics = this.extractMetrics(data);
-
-      // 정리
-      await fs.unlink(outputPath).catch(() => {});
-
-      return {
-        success: true,
-        metrics,
-        rawData: data
-      };
-    } catch (error) {
-      // 정리
-      await fs.unlink(outputPath).catch(() => {});
-
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
     }
+
+    // All attempts failed, return partial data if possible
+    console.error(`Lighthouse failed after ${maxRetries + 1} attempts for ${options.url}`);
+    return {
+      success: false,
+      error: lastError?.message || 'Unknown error',
+      metrics: {
+        LCP: 0,
+        CLS: 0,
+        TBT: 0
+      }
+    };
   }
 
   /**

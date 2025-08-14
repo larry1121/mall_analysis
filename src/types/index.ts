@@ -136,4 +136,12 @@ export interface LLMGraderOutput {
     purchaseFlow: CheckResult & { ok: boolean; steps: PurchaseFlowStep[] };
     seoAnalytics: CheckResult;
   };
+  metadata?: {
+    modelRequested: string;
+    modelUsed: string;
+    processingTimeMs: number;
+    tokensUsed: number;
+    promptTokens: number;
+    completionTokens: number;
+  };
 }

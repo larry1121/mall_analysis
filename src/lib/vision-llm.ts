@@ -12,6 +12,7 @@ const EvidenceItemSchema = z.object({
 });
 
 const CheckResultSchema = z.object({
+  id: z.string(), // Required for CheckResult interface
   score: z.number().min(0).max(10),
   evidence: z.record(z.any()).optional(),
   metrics: z.record(z.any()).optional(),
@@ -113,16 +114,49 @@ export class VisionLLMGrader {
           console.log('URL for analysis:', input.url);
         }
 
-        const response = await this.client.chat.completions.create({
+        const startTime = Date.now();
+        const completionParams: any = {
           model: this.model,
           messages,
           response_format: { type: 'json_object' },
           temperature: this.model === 'gpt-5' ? 1 : 0.3, // GPT-5는 1, 다른 모델은 0.3
-          max_tokens: 4000
-        });
+        };
+        
+        // GPT-5는 max_completion_tokens 사용, 다른 모델은 max_tokens 사용
+        if (this.model === 'gpt-5') {
+          completionParams.max_completion_tokens = 16000; // 더 증가 (reasoning + output)
+          console.log('Using max_completion_tokens for GPT-5:', 16000);
+        } else {
+          completionParams.max_tokens = 4000;
+        }
+        
+        const response = await this.client.chat.completions.create(completionParams);
+
+        const processingTime = Date.now() - startTime;
+        const actualModel = response.model; // Actual model used (after routing)
+        const usage = response.usage;
+
+        console.log(`Model Response Info:
+          - Requested Model: ${this.model}
+          - Actual Model Used: ${actualModel}
+          - Processing Time: ${processingTime}ms
+          - Tokens Used: ${usage?.total_tokens || 0}
+        `);
 
         const content = response.choices[0]?.message?.content;
+        
+        // 디버깅: 응답 구조 확인
+        console.log('Response choices count:', response.choices?.length);
+        console.log('Response finish_reason:', response.choices[0]?.finish_reason);
+        console.log('Response content length:', content?.length || 0);
+        
         if (!content) {
+          console.error('Empty response details:', {
+            choices: response.choices?.length,
+            finish_reason: response.choices[0]?.finish_reason,
+            message: response.choices[0]?.message,
+            usage: response.usage
+          });
           throw new Error('Empty response from LLM');
         }
 
@@ -132,15 +166,35 @@ export class VisionLLMGrader {
         
         // 디버깅: firstView 응답 확인
         if (parsed.scores?.firstView?.evidence?.promoTexts) {
-          console.log('GPT-5 detected promo texts:', JSON.stringify(parsed.scores.firstView.evidence.promoTexts));
+          console.log('Detected promo texts:', JSON.stringify(parsed.scores.firstView.evidence.promoTexts));
         }
+        
+        // Add id field if missing (GPT-5 fallback)
+        Object.entries(parsed.scores).forEach(([key, value]: [string, any]) => {
+          if (!value.id) {
+            value.id = key;
+          }
+        });
         
         // Zod 검증
         const validated = LLMOutputSchema.parse(parsed);
         
         console.log('Validated scores - speed:', validated.scores.speed.score, 'firstView:', validated.scores.firstView.score);
         
-        return validated as LLMGraderOutput;
+        // Add metadata to the response
+        const result: LLMGraderOutput = {
+          ...validated,
+          metadata: {
+            modelRequested: this.model,
+            modelUsed: actualModel,
+            processingTimeMs: processingTime,
+            tokensUsed: usage?.total_tokens || 0,
+            promptTokens: usage?.prompt_tokens || 0,
+            completionTokens: usage?.completion_tokens || 0
+          }
+        };
+        
+        return result;
       } catch (error) {
         lastError = error as Error;
         console.error(`LLM grading attempt ${attempt + 1} failed:`, error);
@@ -269,9 +323,9 @@ ${JSON.stringify(koreanKeywords, null, 2)}
     - 메타 태그 (title/description/og/h1/canonical): 각 1점, alt: 2점
     - 분석 코드 존재: 3점
 
-HTML:
+HTML (처음 20000자):
 \`\`\`html
-${input.html.substring(0, 50000)}
+${input.html.substring(0, 20000)}
 \`\`\`
 
 지시사항:
@@ -283,7 +337,7 @@ ${input.html.substring(0, 50000)}
 4. 정확한 JSON 형식으로만 응답
 5. 프로모션 문구는 실제로 해당 사이트에 있는 것만 언급
 
-응답 형식:
+응답 형식 (⚠️ 매우 중요: 각 score 객체에 반드시 "id" 필드를 포함해야 함):
 {
   "url": "평가한 URL",
   "expertSummary": {
@@ -307,12 +361,14 @@ ${input.html.substring(0, 50000)}
   },
   "scores": {
     "speed": {
+      "id": "speed",
       "score": 0-10,
       "metrics": {"LCP": 0, "CLS": 0, "TBT": 0},
       "evidence": {"lighthousePath": "경로"},
       "insights": ["개선점"]
     },
     "firstView": {
+      "id": "firstView",
       "score": 0-10,
       "evidence": {
         "cta": {"selector": "button.buy", "bbox": [x, y, w, h], "text": "구매하기"},
@@ -320,7 +376,44 @@ ${input.html.substring(0, 50000)}
       },
       "insights": ["개선점"]
     },
+    "bi": {
+      "id": "bi",
+      "score": 0-10,
+      "evidence": {},
+      "insights": ["개선점"]
+    },
+    "navigation": {
+      "id": "navigation",
+      "score": 0-10,
+      "evidence": {},
+      "insights": ["개선점"]
+    },
+    "uspPromo": {
+      "id": "uspPromo",
+      "score": 0-10,
+      "evidence": {},
+      "insights": ["개선점"]
+    },
+    "visuals": {
+      "id": "visuals",
+      "score": 0-10,
+      "evidence": {},
+      "insights": ["개선점"]
+    },
+    "trust": {
+      "id": "trust",
+      "score": 0-10,
+      "evidence": {},
+      "insights": ["개선점"]
+    },
+    "mobile": {
+      "id": "mobile",
+      "score": 0-10,
+      "evidence": {},
+      "insights": ["개선점"]
+    },
     "purchaseFlow": {
+      "id": "purchaseFlow",
       "score": 0-10,
       "ok": true/false,
       "steps": [
@@ -330,7 +423,12 @@ ${input.html.substring(0, 50000)}
       "evidence": {},
       "insights": ["개선점"]
     },
-    // ... 나머지 항목들
+    "seoAnalytics": {
+      "id": "seoAnalytics",
+      "score": 0-10,
+      "evidence": {},
+      "insights": ["개선점"]
+    }
   }
 }`;
   }
