@@ -297,15 +297,17 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
           </div>
         </motion.div>
 
-        {/* Screenshots Gallery */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="card p-6 mb-8"
-        >
-          <ScreenshotGallery runId={runId} screenshots={data.screenshots} />
-        </motion.div>
+        {/* Screenshots Gallery - Current Analysis Only */}
+        {data.screenshots?.main && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="card p-6 mb-8"
+          >
+            <ScreenshotGallery runId={runId} screenshots={data.screenshots} />
+          </motion.div>
+        )}
 
         {/* Purchase Flow */}
         {data.purchaseFlow && (

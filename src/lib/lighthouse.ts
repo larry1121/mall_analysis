@@ -22,7 +22,7 @@ export interface LighthouseResult {
 export class LighthouseRunner {
   private timeout: number;
 
-  constructor(timeout: number = 60000) { // Increase default timeout to 60s
+  constructor(timeout: number = 600000) { // Increase default timeout to 600s (10 minutes)
     this.timeout = timeout;
   }
 
@@ -30,7 +30,7 @@ export class LighthouseRunner {
    * Lighthouse CLI 실행 및 결과 파싱 (with retry logic)
    */
   async run(options: LighthouseOptions): Promise<LighthouseResult> {
-    const maxRetries = 2;
+    const maxRetries = 1; // Reduce retries since each attempt takes very long
     let lastError: Error | null = null;
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -337,7 +337,7 @@ export class DockerLighthouseRunner extends LighthouseRunner {
 // 환경에 따라 적절한 Runner 선택
 export function createLighthouseRunner(): LighthouseRunner {
   const isDocker = process.env.USE_DOCKER_LIGHTHOUSE === 'true';
-  const timeout = parseInt(process.env.LIGHTHOUSE_TIMEOUT || '40000', 10);
+  const timeout = parseInt(process.env.LIGHTHOUSE_TIMEOUT || '600000', 10); // Increase to 600s (10 minutes)
   
   if (isDocker) {
     return new DockerLighthouseRunner(timeout);

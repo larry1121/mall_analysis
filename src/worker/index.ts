@@ -77,10 +77,8 @@ async function processJob(job: Job<AuditJobData> | any): Promise<any> {
     // 진행률 업데이트 함수
     const updateProgress = async (progress: number, message?: string) => {
       if (job.updateProgress) {
-        await job.updateProgress(progress);
-      }
-      if (job.progress !== undefined) {
-        job.progress = progress;
+        // Update progress with message for better UI feedback
+        await job.updateProgress({ value: progress, message });
       }
       console.log(`📊 Progress [${runId}]: ${progress}% ${message || ''}`);
     };

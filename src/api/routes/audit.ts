@@ -146,7 +146,10 @@ export async function auditRoutes(fastify: FastifyInstance) {
         }
       },
       response: {
-        200: { type: 'object' }, // AuditResult는 너무 복잡해서 any 사용
+        200: { 
+          type: 'object',
+          additionalProperties: true  // Allow any properties
+        },
         404: ErrorSchema
       }
     }
@@ -157,7 +160,7 @@ export async function auditRoutes(fastify: FastifyInstance) {
       // DB에서 조회
       const result = await db.getRun(runId);
       
-      fastify.log.info({ runId, result }, 'Fetched run from DB');
+      fastify.log.info({ runId, status: result?.status }, 'Fetched run from DB');
 
       if (!result) {
         return reply.status(404).send({
@@ -168,24 +171,38 @@ export async function auditRoutes(fastify: FastifyInstance) {
 
       // Date 객체를 ISO 문자열로 변환
       const serializedResult = {
-        ...result,
-        startedAt: result.startedAt instanceof Date ? result.startedAt.toISOString() : result.startedAt
+        runId: result.runId,
+        url: result.url,
+        status: result.status,
+        startedAt: result.startedAt instanceof Date ? result.startedAt.toISOString() : result.startedAt,
+        elapsedMs: result.elapsedMs,
+        totalScore: result.totalScore,
+        error: result.error,
+        screenshots: result.screenshots
       };
 
       // 진행 중인 경우 큐 상태 확인
       if (result.status === 'pending' || result.status === 'processing') {
         const job = await queue.getJob(runId);
+        console.log(`[API] Job found: ${!!job}, status: ${result.status}`);
         
         if (job) {
-          const progress = job.progress || 0;
+          // BullMQ's progress is stored as an object or number
+          const progressData = job.progress;
+          const progress = typeof progressData === 'number' ? progressData : (progressData?.value || 0);
+          console.log(`[API] Progress data:`, progressData);
           
-          return reply.send({
+          const response = {
             ...serializedResult,
-            progress
-          });
+            progress,
+            progressMessage: progressData?.message || undefined
+          };
+          console.log(`[API] Sending response:`, JSON.stringify(response).substring(0, 100));
+          return reply.send(response);
         }
         // job이 없어도 result는 반환
-        return reply.type('application/json').send(JSON.stringify(serializedResult));
+        console.log(`[API] No job found, returning basic result`);
+        return reply.send(serializedResult);
       }
 
       // 완료된 경우 전체 결과 반환
@@ -199,8 +216,8 @@ export async function auditRoutes(fastify: FastifyInstance) {
             ...fullResult,
             startedAt: fullResult.startedAt instanceof Date ? fullResult.startedAt.toISOString() : fullResult.startedAt
           };
-          fastify.log.info({ runId, serialized: serializedFullResult }, 'Sending serialized result');
-          return reply.type('application/json').send(JSON.stringify(serializedFullResult));
+          fastify.log.info({ runId }, 'Sending serialized result');
+          return reply.send(serializedFullResult);
         } else {
           fastify.log.warn({ runId }, 'Full result not found, sending basic result');
           return reply.send(serializedResult);
@@ -209,7 +226,7 @@ export async function auditRoutes(fastify: FastifyInstance) {
 
       // 실패한 경우 또는 기타 상태
       fastify.log.info({ runId, status: result.status }, 'Returning basic result');
-      return reply.type('application/json').send(JSON.stringify(serializedResult));
+      return reply.send(serializedResult);
 
     } catch (error) {
       fastify.log.error({ error, runId }, 'Failed to get audit status');

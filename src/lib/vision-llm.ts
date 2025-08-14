@@ -318,6 +318,7 @@ ${JSON.stringify(koreanKeywords, null, 2)}
    - 장바구니→결제 진입: 3점
    - 3단계 이내: 1점
    - 필수 필드: ok (boolean), steps (array)
+   - ⚠️ 중요: steps의 name은 반드시 "home", "pdp", "cart", "checkout" 중 하나여야 함
 
 10. seoAnalytics (SEO/분석):
     - 메타 태그 (title/description/og/h1/canonical): 각 1점, alt: 2점
@@ -418,7 +419,8 @@ ${input.html.substring(0, 20000)}
       "ok": true/false,
       "steps": [
         {"name": "home", "url": "URL", "screenshot": "base64 or path"},
-        {"name": "pdp", "url": "URL", "screenshot": "base64 or path"}
+        {"name": "pdp", "url": "URL", "screenshot": "base64 or path"},
+        {"name": "cart", "url": "URL", "screenshot": "base64 or path"}
       ],
       "evidence": {},
       "insights": ["개선점"]

@@ -191,7 +191,9 @@ export class Scorer {
     }
 
     // 베스트/신상품 섹션 (3점)
-    const hasCategory = evidence.menu?.some((item: string) => 
+    const menuArray = Array.isArray(evidence.menu) ? evidence.menu : 
+                      (typeof evidence.menu === 'string' ? [evidence.menu] : []);
+    const hasCategory = menuArray.some((item: string) => 
       /베스트|신상품|추천|BEST|NEW/i.test(item)
     );
     if (hasCategory) {

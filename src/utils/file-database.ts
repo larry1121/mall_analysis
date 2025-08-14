@@ -65,7 +65,8 @@ export class FileDatabase {
     try {
       const data = await fs.readFile(path, 'utf-8');
       const parsed = JSON.parse(data);
-      console.log(`[FileDB] getRun(${runId}) parsed:`, parsed);
+      // Remove verbose logging that causes empty array spam
+      // console.log(`[FileDB] getRun(${runId}) parsed:`, parsed);
       
       // Date 객체로 변환
       if (parsed.startedAt) {
@@ -83,7 +84,7 @@ export class FileDatabase {
         screenshots: parsed.screenshots
       };
       
-      console.log(`[FileDB] getRun(${runId}) returning:`, result);
+      console.log(`[FileDB] getRun(${runId}) returning status:`, result.status);
       return result;
     } catch (error) {
       console.log(`[FileDB] getRun(${runId}) error:`, error);
@@ -97,7 +98,7 @@ export class FileDatabase {
       const data = await fs.readFile(path, 'utf-8');
       const parsed = JSON.parse(data);
       
-      console.log(`[FileDB] getFullResult(${runId}) parsed:`, parsed);
+      // console.log(`[FileDB] getFullResult(${runId}) parsed:`, parsed);
       
       // Date 객체로 변환
       if (parsed.startedAt) {
@@ -121,7 +122,7 @@ export class FileDatabase {
         screenshots: parsed.screenshots || undefined
       };
       
-      console.log(`[FileDB] getFullResult(${runId}) returning:`, result);
+      // console.log(`[FileDB] getFullResult(${runId}) returning:`, result);
       return result;
     } catch (error) {
       console.log(`[FileDB] getFullResult(${runId}) error:`, error);
