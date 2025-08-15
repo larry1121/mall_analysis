@@ -28,7 +28,8 @@
       "Bash(do sleep:*)",
       "Bash(done)",
       "Bash(for i in {1..30})",
-      "Bash(for i in {1..60})"
+      "Bash(for i in {1..60})",
+      "Bash(env)"
     ],
     "deny": [],
     "ask": [],

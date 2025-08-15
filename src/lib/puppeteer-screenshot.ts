@@ -36,6 +36,21 @@ export interface ScreenshotResult {
   };
 }
 
+export interface ElementScreenshotConfig {
+  selector?: string;
+  bbox?: { x: number; y: number; width: number; height: number };
+  padding?: number; // Extra padding around element
+}
+
+export interface ElementScreenshotResult {
+  success: boolean;
+  screenshot?: string; // base64 encoded image
+  localPath?: string;
+  selector?: string;
+  bbox?: { x: number; y: number; width: number; height: number };
+  error?: string;
+}
+
 export class PuppeteerScreenshot {
   private browser: Browser | null = null;
   private screenshotDir: string;
@@ -319,6 +334,269 @@ export class PuppeteerScreenshot {
       return filePath;
     } catch {
       return null;
+    }
+  }
+
+  async captureElement(url: string, elementConfig: ElementScreenshotConfig, pageConfig: ScreenshotConfig = {}): Promise<ElementScreenshotResult> {
+    await this.initialize();
+
+    if (!this.browser) {
+      return {
+        success: false,
+        error: 'Failed to initialize browser'
+      };
+    }
+
+    const page = await this.browser.newPage();
+
+    try {
+      // Set viewport
+      const viewport = pageConfig.viewport || {
+        width: 1280,
+        height: 800,
+        deviceScaleFactor: 2, // Higher quality for element screenshots
+        isMobile: false
+      };
+      await page.setViewport(viewport);
+
+      // Navigate to URL
+      await page.goto(url, {
+        waitUntil: pageConfig.waitUntil || 'networkidle2',
+        timeout: 30000
+      });
+
+      // Wait for content
+      if (pageConfig.waitFor) {
+        if (typeof pageConfig.waitFor === 'number') {
+          await new Promise(resolve => setTimeout(resolve, pageConfig.waitFor as number));
+        } else {
+          await page.waitForSelector(pageConfig.waitFor, { timeout: 10000 });
+        }
+      }
+
+      let screenshotBuffer: Buffer;
+      let actualBbox: { x: number; y: number; width: number; height: number } | undefined;
+
+      if (elementConfig.selector) {
+        // Wait for selector and capture element
+        await page.waitForSelector(elementConfig.selector, { timeout: 10000 });
+        const element = await page.$(elementConfig.selector);
+        
+        if (!element) {
+          throw new Error(`Element not found: ${elementConfig.selector}`);
+        }
+
+        // Get bounding box
+        const box = await element.boundingBox();
+        if (!box) {
+          throw new Error(`Could not get bounding box for ${elementConfig.selector}`);
+        }
+
+        actualBbox = box;
+
+        // Add padding if specified
+        const padding = elementConfig.padding || 10;
+        const clip = {
+          x: Math.max(0, box.x - padding),
+          y: Math.max(0, box.y - padding),
+          width: box.width + (padding * 2),
+          height: box.height + (padding * 2)
+        };
+
+        // Take screenshot with clip
+        screenshotBuffer = await page.screenshot({
+          clip,
+          type: pageConfig.type || 'png'
+        });
+
+      } else if (elementConfig.bbox) {
+        // Use provided bbox
+        const padding = elementConfig.padding || 10;
+        const clip = {
+          x: Math.max(0, elementConfig.bbox.x - padding),
+          y: Math.max(0, elementConfig.bbox.y - padding),
+          width: elementConfig.bbox.width + (padding * 2),
+          height: elementConfig.bbox.height + (padding * 2)
+        };
+
+        actualBbox = elementConfig.bbox;
+
+        screenshotBuffer = await page.screenshot({
+          clip,
+          type: pageConfig.type || 'png'
+        });
+      } else {
+        throw new Error('Either selector or bbox must be provided');
+      }
+
+      // Generate unique filename
+      const hash = crypto.createHash('md5')
+        .update(url + (elementConfig.selector || JSON.stringify(elementConfig.bbox)) + Date.now())
+        .digest('hex');
+      const filename = `element_${hash}.${pageConfig.type || 'png'}`;
+      const localPath = path.join(this.screenshotDir, filename);
+
+      // Save to local file
+      await fs.writeFile(localPath, screenshotBuffer);
+
+      // Convert to base64
+      const base64 = screenshotBuffer.toString('base64');
+      const mimeType = `image/${pageConfig.type || 'png'}`;
+      const dataUri = `data:${mimeType};base64,${base64}`;
+
+      return {
+        success: true,
+        screenshot: dataUri,
+        localPath,
+        selector: elementConfig.selector,
+        bbox: actualBbox,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: (error as Error).message
+      };
+    } finally {
+      await page.close();
+    }
+  }
+
+  async captureMultipleElements(
+    url: string,
+    elements: ElementScreenshotConfig[],
+    pageConfig: ScreenshotConfig = {}
+  ): Promise<ElementScreenshotResult[]> {
+    await this.initialize();
+
+    if (!this.browser) {
+      return elements.map(() => ({
+        success: false,
+        error: 'Failed to initialize browser'
+      }));
+    }
+
+    const page = await this.browser.newPage();
+    const results: ElementScreenshotResult[] = [];
+
+    try {
+      // Set viewport
+      const viewport = pageConfig.viewport || {
+        width: 1280,
+        height: 800,
+        deviceScaleFactor: 2,
+        isMobile: false
+      };
+      await page.setViewport(viewport);
+
+      // Navigate to URL once
+      await page.goto(url, {
+        waitUntil: pageConfig.waitUntil || 'networkidle2',
+        timeout: 30000
+      });
+
+      // Wait for content
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Capture each element
+      for (const elementConfig of elements) {
+        try {
+          let screenshotBuffer: Buffer;
+          let actualBbox: { x: number; y: number; width: number; height: number } | undefined;
+
+          if (elementConfig.selector) {
+            const element = await page.$(elementConfig.selector);
+            if (!element) {
+              results.push({
+                success: false,
+                selector: elementConfig.selector,
+                error: `Element not found: ${elementConfig.selector}`
+              });
+              continue;
+            }
+
+            const box = await element.boundingBox();
+            if (!box) {
+              results.push({
+                success: false,
+                selector: elementConfig.selector,
+                error: `Could not get bounding box`
+              });
+              continue;
+            }
+
+            actualBbox = box;
+            const padding = elementConfig.padding || 10;
+            const clip = {
+              x: Math.max(0, box.x - padding),
+              y: Math.max(0, box.y - padding),
+              width: box.width + (padding * 2),
+              height: box.height + (padding * 2)
+            };
+
+            screenshotBuffer = await page.screenshot({
+              clip,
+              type: pageConfig.type || 'png'
+            });
+
+          } else if (elementConfig.bbox) {
+            const padding = elementConfig.padding || 10;
+            const clip = {
+              x: Math.max(0, elementConfig.bbox.x - padding),
+              y: Math.max(0, elementConfig.bbox.y - padding),
+              width: elementConfig.bbox.width + (padding * 2),
+              height: elementConfig.bbox.height + (padding * 2)
+            };
+
+            actualBbox = elementConfig.bbox;
+            screenshotBuffer = await page.screenshot({
+              clip,
+              type: pageConfig.type || 'png'
+            });
+          } else {
+            results.push({
+              success: false,
+              error: 'Neither selector nor bbox provided'
+            });
+            continue;
+          }
+
+          // Save screenshot
+          const hash = crypto.createHash('md5')
+            .update(url + (elementConfig.selector || JSON.stringify(elementConfig.bbox)) + Date.now())
+            .digest('hex');
+          const filename = `element_${hash}.${pageConfig.type || 'png'}`;
+          const localPath = path.join(this.screenshotDir, filename);
+
+          await fs.writeFile(localPath, screenshotBuffer);
+
+          const base64 = screenshotBuffer.toString('base64');
+          const mimeType = `image/${pageConfig.type || 'png'}`;
+          const dataUri = `data:${mimeType};base64,${base64}`;
+
+          results.push({
+            success: true,
+            screenshot: dataUri,
+            localPath,
+            selector: elementConfig.selector,
+            bbox: actualBbox
+          });
+        } catch (error) {
+          results.push({
+            success: false,
+            selector: elementConfig.selector,
+            error: (error as Error).message
+          });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      return elements.map(() => ({
+        success: false,
+        error: (error as Error).message
+      }));
+    } finally {
+      await page.close();
     }
   }
 

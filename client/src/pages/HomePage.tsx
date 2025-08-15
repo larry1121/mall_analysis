@@ -84,7 +84,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
               <BarChart3 className="w-8 h-8 text-primary-600" />
               <h1 className="text-2xl font-bold text-gray-900">Mall Analysis POC</h1>
             </div>
-            <span className="text-sm text-gray-500">자사몰 첫 페이지 자동 진단 시스템</span>
+            <span className="text-sm text-gray-500">AI 기반 매출 증대 솔루션</span>
           </div>
         </div>
       </header>
@@ -104,7 +104,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              90초 안에 자사몰 분석 완료
+              링크 하나로 매출을 올리세요
             </motion.h2>
             <motion.p 
               className="text-lg text-gray-600"
@@ -112,7 +112,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
-              URL을 입력하면 10개 항목을 자동으로 평가하고 개선점을 제안합니다
+              자사몰의 숨겨진 문제점을 찾아내고 즉시 적용 가능한 개선안을 제공합니다
             </motion.p>
           </div>
 
@@ -126,7 +126,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
-                  분석할 사이트 URL
+                  자사몰 URL 입력
                 </label>
                 <div className="relative">
                   <input
@@ -134,7 +134,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
                     id="url"
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
-                    placeholder="https://example.com"
+                    placeholder="https://myshop.com"
                     className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                     disabled={isLoading}
                   />
@@ -155,7 +155,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
                 ) : (
                   <>
                     <Zap className="w-5 h-5" />
-                    <span>분석 시작</span>
+                    <span>매출 올리기</span>
                   </>
                 )}
               </button>
@@ -246,24 +246,24 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary-100 text-primary-600 mb-3">
                 <Zap className="w-6 h-6" />
               </div>
-              <h3 className="font-semibold text-gray-900">빠른 분석</h3>
-              <p className="text-sm text-gray-600 mt-1">90초 이내 완료</p>
+              <h3 className="font-semibold text-gray-900">즉시 발견</h3>
+              <p className="text-sm text-gray-600 mt-1">숨겨진 문제점 파악</p>
             </div>
             
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 text-green-600 mb-3">
                 <Shield className="w-6 h-6" />
               </div>
-              <h3 className="font-semibold text-gray-900">증거 기반</h3>
-              <p className="text-sm text-gray-600 mt-1">스크린샷과 데이터 제공</p>
+              <h3 className="font-semibold text-gray-900">실전 개선안</h3>
+              <p className="text-sm text-gray-600 mt-1">바로 적용 가능한 솔루션</p>
             </div>
             
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-purple-100 text-purple-600 mb-3">
                 <Sparkles className="w-6 h-6" />
               </div>
-              <h3 className="font-semibold text-gray-900">AI 분석</h3>
-              <p className="text-sm text-gray-600 mt-1">GPT-5 기반 평가</p>
+              <h3 className="font-semibold text-gray-900">매출 증대</h3>
+              <p className="text-sm text-gray-600 mt-1">전환율 향상 보장</p>
             </div>
           </motion.div>
 

@@ -3,6 +3,7 @@ import { createFirecrawlClient, FirecrawlClient } from '../lib/firecrawl.js';
 import { createLighthouseRunner, LighthouseRunner } from '../lib/lighthouse.js';
 import { createVisionLLMGrader, VisionLLMGrader } from '../lib/vision-llm.js';
 import { createScorer, Scorer } from '../lib/scorer.js';
+import { createScorerV2 } from '../lib/scorer-v2.js';
 import { Reporter } from '../lib/reporter.js';
 import { getStorage } from '../utils/storage.js';
 import * as cvUtils from '../lib/cv-utils.js';
@@ -62,35 +63,40 @@ export async function runAudit(
       console.error('Screenshot capture failed:', screenshotResult.error);
     }
     
-    // Firecrawl for HTML data (optional, fallback to basic HTML)
-    let firecrawlClient: FirecrawlClient | null = null;
+    // Use Puppeteer HTML as primary source
+    firecrawlData = {
+      html: screenshotData?.html || '',
+      screenshot: screenshotData?.screenshot || '',
+      links: [],
+      actions: { screenshots: [], urls: [] }
+    };
     
-    if (process.env.FIRECRAWL_API_KEY) {
-      firecrawlClient = createFirecrawlClient();
-      const response = await firecrawlClient.scrapeWithFallback(url, platform);
-      
-      if (response.success && response.data) {
-        firecrawlData = response.data;
-        // Use Puppeteer screenshot instead of Firecrawl's
-        if (screenshotData?.screenshot) {
-          firecrawlData.screenshot = screenshotData.screenshot;
+    // Firecrawl as optional enhancement (only if API key exists and explicitly enabled)
+    if (process.env.FIRECRAWL_API_KEY && process.env.USE_FIRECRAWL === 'true') {
+      console.log('Firecrawl enabled, attempting to enhance data...');
+      try {
+        const firecrawlClient = createFirecrawlClient();
+        const response = await firecrawlClient.scrapeWithFallback(url, platform);
+        
+        if (response.success && response.data) {
+          // Only use Firecrawl for additional data, not primary HTML
+          firecrawlData.links = response.data.links || [];
+          firecrawlData.actions = response.data.actions || { screenshots: [], urls: [] };
+          console.log('Firecrawl enhancement successful');
         }
-        await updateProgress(30, 'Web scraping completed');
-      } else {
-        console.warn('Firecrawl failed, using basic HTML fetch');
-        firecrawlData = await fetchBasicHTML(url);
-        if (screenshotData?.screenshot) {
-          firecrawlData.screenshot = screenshotData.screenshot;
-        }
+      } catch (error) {
+        console.log('Firecrawl enhancement failed, continuing with Puppeteer data');
       }
-    } else {
-      console.warn('Firecrawl API key not configured, using basic fetch');
-      firecrawlData = await fetchBasicHTML(url);
-      if (screenshotData?.screenshot) {
-        firecrawlData = { ...firecrawlData, screenshot: screenshotData.screenshot };
-      }
-      await updateProgress(30, 'Basic HTML fetch completed');
     }
+    
+    // Fallback if Puppeteer HTML is empty
+    if (!firecrawlData.html && !screenshotData?.html) {
+      console.warn('No HTML from Puppeteer, using basic fetch as fallback');
+      const basicData = await fetchBasicHTML(url);
+      firecrawlData.html = basicData.html;
+    }
+    
+    await updateProgress(30, 'Data collection completed');
 
     // 2. Lighthouse 성능 측정 (병렬, 50%)
     const lighthousePromise = (async () => {
@@ -118,13 +124,22 @@ export async function runAudit(
         const typography = cvUtils.analyzeTypographyHierarchy(firecrawlData.html);
         const hasViewport = cvUtils.hasViewportMeta(firecrawlData.html);
         const hasOverflow = cvUtils.detectHorizontalOverflow(firecrawlData.html);
+        const minFontSize = cvUtils.analyzeMinFontSize(firecrawlData.html);
+        const minTouchTarget = cvUtils.analyzeMinTouchTarget(firecrawlData.html);
+        const seoData = cvUtils.analyzeSeoData(firecrawlData.html);
+        const navigation = cvUtils.analyzeNavigation(firecrawlData.html);
 
         return {
           altRatio,
           popups,
           typography,
           hasViewport,
-          hasOverflow
+          hasOverflow,
+          minFontSize,
+          minTouchTarget,
+          seoData,
+          navigation,
+          popupCount: popups.count
         };
       }
       return null;
@@ -182,41 +197,34 @@ export async function runAudit(
       await updateProgress(70, 'Mock analysis completed');
     }
 
-    // 5. 점수 계산 (80%)
+    // 5. 점수 계산 (80%) - ScorerV2 사용
     await updateProgress(75, 'Calculating scores...');
     
-    const scorer = await createScorer();
+    // 측정 데이터 준비
+    const measuredData = {
+      lighthouse: lighthouseData || null,
+      cv: cvAnalysis ? {
+        hasViewport: cvAnalysis.hasViewport,
+        minFontSize: cvAnalysis.minFontSize,
+        minTouchTarget: cvAnalysis.minTouchTarget,
+        hasOverflow: cvAnalysis.hasOverflow,
+        altRatio: cvAnalysis.altRatio.ratio,
+        popupCount: cvAnalysis.popupCount
+      } : null,
+      html: cvAnalysis ? {
+        ...cvAnalysis.seoData,
+        ...cvAnalysis.navigation
+      } : null
+    };
+
+    // ScorerV2로 점수 계산
+    const scorerV2 = createScorerV2();
+    const scoreResult = scorerV2.calculateScores(llmOutput, measuredData);
     
-    // Lighthouse 데이터 주입
-    if (lighthouseData && llmOutput.scores.speed) {
-      llmOutput.scores.speed.metrics = lighthouseData;
-    }
-
-    // CV 분석 데이터 주입
-    if (cvAnalysis) {
-      if (llmOutput.scores.visuals) {
-        llmOutput.scores.visuals.evidence = {
-          ...llmOutput.scores.visuals.evidence,
-          altRatio: cvAnalysis.altRatio.ratio,
-          popups: cvAnalysis.popups.count
-        };
-      }
-      if (llmOutput.scores.mobile) {
-        llmOutput.scores.mobile.evidence = {
-          ...llmOutput.scores.mobile.evidence,
-          viewportMeta: cvAnalysis.hasViewport,
-          overflow: cvAnalysis.hasOverflow
-        };
-      }
-      if (llmOutput.scores.bi) {
-        llmOutput.scores.bi.evidence = {
-          ...llmOutput.scores.bi.evidence,
-          typographyRatio: cvAnalysis.typography.ratio
-        };
-      }
-    }
-
-    const scoreResult = scorer.calculateScores(llmOutput);
+    console.log('Score calculation complete:', {
+      totalScore: scoreResult.totalScore,
+      sources: scoreResult.scoreSources
+    });
     
     await updateProgress(80, 'Scores calculated');
 
@@ -233,12 +241,13 @@ export async function runAudit(
       startedAt: new Date(startTime),
       elapsedMs: Date.now() - startTime,
       totalScore: scoreResult.totalScore,
-      checks: Object.entries(llmOutput.scores).map(([id, score]: [string, any]) => ({
+      checks: Object.entries(scoreResult.categoryScores).map(([id, score]) => ({
         id,
-        score: score.score,
-        metrics: score.metrics,
-        evidence: score.evidence,
-        insights: score.insights || []
+        score,
+        source: scoreResult.scoreSources[id], // 점수 출처 (rule/ai/hybrid)
+        metrics: llmOutput.scores[id]?.metrics,
+        evidence: llmOutput.scores[id]?.evidence,
+        insights: llmOutput.scores[id]?.insights || []
       })),
       expertSummary: llmOutput.expertSummary || undefined,
       purchaseFlow: llmOutput.scores.purchaseFlow?.steps ? {

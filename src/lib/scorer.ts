@@ -114,6 +114,13 @@ export class Scorer {
    */
   private calculateSpeedScore(result: CheckResult): number {
     const metrics = result.metrics || {};
+    
+    // Lighthouse 데이터가 없으면 LLM 점수 사용
+    if (!metrics.LCP && !metrics.CLS && !metrics.TBT) {
+      console.log('No Lighthouse metrics, using LLM score:', result.score);
+      return result.score;
+    }
+    
     let score = 10;
 
     // LCP 채점

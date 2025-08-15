@@ -106,7 +106,7 @@ export default function LoadingScreen({ progress = 0, status = 'pending' }: Load
           {/* Tip */}
           <div className="mt-8 p-4 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
-              💡 90초 이내에 분석이 완료됩니다
+              💡 매출 증가를 위한 최적화 방안을 찾고 있습니다...
             </p>
           </div>
         </div>

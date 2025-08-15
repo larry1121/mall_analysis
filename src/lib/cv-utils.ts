@@ -1,6 +1,7 @@
 import Vibrant from 'node-vibrant';
 import sharp from 'sharp';
 import * as cheerio from 'cheerio';
+import { JSDOM } from 'jsdom';
 
 export interface ColorPalette {
   primary: string;
@@ -404,4 +405,125 @@ export function detectHorizontalOverflow(html: string, viewportWidth: number = 3
   });
 
   return hasOverflow;
+}
+
+/**
+ * 최소 폰트 크기 분석
+ */
+export function analyzeMinFontSize(html: string): number {
+  const $ = cheerio.load(html);
+  let minSize = 16; // 기본값
+  
+  // 본문 텍스트 요소들 분석
+  $('p, span, div, li, a').each((_, element) => {
+    const style = $(element).attr('style');
+    if (style) {
+      const fontSizeMatch = style.match(/font-size:\s*(\d+(?:\.\d+)?)(px|rem|em)/i);
+      if (fontSizeMatch) {
+        const size = parseFloat(fontSizeMatch[1]);
+        const unit = fontSizeMatch[2];
+        
+        let pxSize = size;
+        if (unit === 'rem' || unit === 'em') {
+          pxSize = size * 16; // 기본 16px 가정
+        }
+        
+        if (pxSize < minSize && pxSize > 8) { // 8px 미만은 무시
+          minSize = pxSize;
+        }
+      }
+    }
+  });
+  
+  return minSize;
+}
+
+/**
+ * 터치 타겟 크기 분석
+ */
+export function analyzeMinTouchTarget(html: string): number {
+  const $ = cheerio.load(html);
+  let minTarget = 44; // iOS 권장 기본값
+  
+  // 버튼과 링크 분석
+  $('button, a, input[type="button"], input[type="submit"]').each((_, element) => {
+    const style = $(element).attr('style');
+    if (style) {
+      const heightMatch = style.match(/height:\s*(\d+)px/i);
+      const widthMatch = style.match(/width:\s*(\d+)px/i);
+      
+      if (heightMatch) {
+        const height = parseInt(heightMatch[1]);
+        if (height < minTarget && height > 20) {
+          minTarget = height;
+        }
+      }
+      
+      if (widthMatch) {
+        const width = parseInt(widthMatch[1]);
+        if (width < minTarget && width > 20) {
+          minTarget = width;
+        }
+      }
+    }
+  });
+  
+  return minTarget;
+}
+
+/**
+ * SEO 메타 데이터 분석
+ */
+export function analyzeSeoData(html: string): {
+  title: boolean;
+  metaDescription: boolean;
+  ogTags: number;
+  h1Count: number;
+  hasAnalytics: boolean;
+  canonical: boolean;
+  altRatio: number;
+} {
+  const $ = cheerio.load(html);
+  
+  // 이미지 alt 비율
+  const images = $('img').length;
+  const imagesWithAlt = $('img[alt]').length;
+  const altRatio = images > 0 ? imagesWithAlt / images : 0;
+  
+  return {
+    title: !!$('title').text(),
+    metaDescription: !!$('meta[name="description"]').attr('content'),
+    ogTags: $('meta[property^="og:"]').length,
+    h1Count: $('h1').length,
+    hasAnalytics: html.includes('googletagmanager') || html.includes('gtag') || html.includes('fbevents'),
+    canonical: !!$('link[rel="canonical"]').attr('href'),
+    altRatio
+  };
+}
+
+/**
+ * 메뉴 및 검색 분석
+ */
+export function analyzeNavigation(html: string): {
+  menuCount: number;
+  hasSearch: boolean;
+  hasBestNew: boolean;
+} {
+  const $ = cheerio.load(html);
+  
+  // 네비게이션 메뉴 찾기
+  const navItems = $('nav a, .nav a, .menu a, header a');
+  
+  // 검색 요소 찾기
+  const hasSearch = $('input[type="search"], input[type="text"][placeholder*="검색"], .search, #search').length > 0;
+  
+  // 베스트/신상품 카테고리 찾기
+  const menuText = navItems.map((_, el) => $(el).text()).get().join(' ');
+  const hasBestNew = /베스트|신상품|추천|인기|BEST|NEW/i.test(menuText);
+  
+  return {
+    menuCount: navItems.length,
+    hasSearch,
+    hasBestNew
+  };
 }

@@ -102,7 +102,8 @@ export class LighthouseRunner {
       '--output=json',
       `--output-path=${outputPath}`,
       '--quiet',
-      '--chrome-flags="--headless --no-sandbox --disable-gpu"'
+      '--chrome-flags="--headless --no-sandbox --disable-gpu --disable-dev-shm-usage"',
+      '--max-wait-for-load=60000'  // 60초까지 페이지 로드 대기
     ];
 
     // 모바일 에뮬레이션
@@ -174,6 +175,8 @@ export class LighthouseRunner {
    * Lighthouse 결과에서 필요한 메트릭 추출
    */
   private extractMetrics(data: any): LighthouseMetrics {
+    console.log('Extracting metrics from Lighthouse data...');
+    
     const audits = data.audits || {};
     const metrics: LighthouseMetrics = {
       LCP: 0,
@@ -181,47 +184,85 @@ export class LighthouseRunner {
       TBT: 0
     };
 
+    // Debug logging
+    console.log('Available audits:', Object.keys(audits));
+
     // LCP (Largest Contentful Paint) - 초 단위
     if (audits['largest-contentful-paint']) {
-      metrics.LCP = audits['largest-contentful-paint'].numericValue / 1000;
+      const lcpValue = audits['largest-contentful-paint'].numericValue;
+      if (lcpValue !== undefined && lcpValue !== null) {
+        metrics.LCP = lcpValue / 1000;
+        console.log('LCP extracted:', metrics.LCP);
+      }
+    } else {
+      console.log('LCP audit not found');
     }
 
     // CLS (Cumulative Layout Shift)
     if (audits['cumulative-layout-shift']) {
-      metrics.CLS = audits['cumulative-layout-shift'].numericValue;
+      const clsValue = audits['cumulative-layout-shift'].numericValue;
+      if (clsValue !== undefined && clsValue !== null) {
+        metrics.CLS = clsValue;
+        console.log('CLS extracted:', metrics.CLS);
+      }
+    } else {
+      console.log('CLS audit not found');
     }
 
     // TBT (Total Blocking Time) - 밀리초 단위
     if (audits['total-blocking-time']) {
-      metrics.TBT = audits['total-blocking-time'].numericValue;
+      const tbtValue = audits['total-blocking-time'].numericValue;
+      if (tbtValue !== undefined && tbtValue !== null) {
+        metrics.TBT = tbtValue;
+        console.log('TBT extracted:', metrics.TBT);
+      }
+    } else {
+      console.log('TBT audit not found');
     }
 
     // FCP (First Contentful Paint) - 초 단위
     if (audits['first-contentful-paint']) {
-      metrics.FCP = audits['first-contentful-paint'].numericValue / 1000;
+      const fcpValue = audits['first-contentful-paint'].numericValue;
+      if (fcpValue !== undefined && fcpValue !== null) {
+        metrics.FCP = fcpValue / 1000;
+        console.log('FCP extracted:', metrics.FCP);
+      }
     }
 
     // SI (Speed Index) - 초 단위
     if (audits['speed-index']) {
-      metrics.SI = audits['speed-index'].numericValue / 1000;
+      const siValue = audits['speed-index'].numericValue;
+      if (siValue !== undefined && siValue !== null) {
+        metrics.SI = siValue / 1000;
+        console.log('SI extracted:', metrics.SI);
+      }
     }
 
     // TTI (Time to Interactive) - 초 단위
     if (audits['interactive']) {
-      metrics.TTI = audits['interactive'].numericValue / 1000;
+      const ttiValue = audits['interactive'].numericValue;
+      if (ttiValue !== undefined && ttiValue !== null) {
+        metrics.TTI = ttiValue / 1000;
+        console.log('TTI extracted:', metrics.TTI);
+      }
     }
 
     // 네트워크 요청 수
     if (audits['network-requests']) {
       const items = audits['network-requests'].details?.items || [];
       metrics.requests = items.length;
+      console.log('Network requests:', metrics.requests);
     }
 
     // 리다이렉트 수
     if (audits['redirects']) {
       const items = audits['redirects'].details?.items || [];
       metrics.redirects = items.length;
+      console.log('Redirects:', metrics.redirects);
     }
+
+    // Log final metrics
+    console.log('Final extracted metrics:', metrics);
 
     return metrics;
   }

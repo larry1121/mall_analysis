@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    open: true, // 개발 서버 시작시 자동으로 브라우저 열기
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

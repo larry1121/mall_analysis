@@ -28,6 +28,7 @@ export interface Evidence {
 export interface CheckResult {
   id: string;
   score: number;
+  source?: 'rule' | 'ai' | 'hybrid'; // 점수 출처
   metrics?: Record<string, any>;
   evidence?: Record<string, any>;
   insights: string[];

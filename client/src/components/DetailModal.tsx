@@ -5,7 +5,7 @@ import {
   describeEvidence, 
   describeGrade,
   translateMetricName 
-} from '../../../src/utils/natural-language'
+} from '../utils/natural-language'
 
 interface DetailModalProps {
   isOpen: boolean
