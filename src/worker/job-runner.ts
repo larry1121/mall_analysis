@@ -197,6 +197,113 @@ export async function runAudit(
       await updateProgress(70, 'Mock analysis completed');
     }
 
+    // 4-1. Evidence별 개별 스크린샷 캡처 (75%)
+    await updateProgress(72, 'Capturing evidence screenshots...');
+    const evidenceScreenshots: Record<string, any> = {};
+    
+    // LLM이 분석한 evidence에서 bbox 정보 추출하여 스크린샷 캡처
+    if (llmOutput && llmOutput.scores) {
+      const puppeteerInstance = getPuppeteerScreenshot('./screenshots');
+      const elementsToCapture: any[] = [];
+      
+      // 각 카테고리별 evidence에서 bbox 정보 수집
+      for (const [categoryId, categoryData] of Object.entries(llmOutput.scores)) {
+        const evidence = (categoryData as any).evidence;
+        if (evidence) {
+          // CTA 버튼
+          if (evidence.cta?.bbox) {
+            elementsToCapture.push({
+              category: categoryId,
+              type: 'cta',
+              bbox: evidence.cta.bbox,
+              selector: evidence.cta.selector
+            });
+          }
+          
+          // 로고
+          if (evidence.logo?.bbox) {
+            elementsToCapture.push({
+              category: categoryId,
+              type: 'logo',
+              bbox: evidence.logo.bbox,
+              selector: evidence.logo.selector
+            });
+          }
+          
+          // 프로모션 텍스트들
+          if (evidence.promoTexts && Array.isArray(evidence.promoTexts)) {
+            evidence.promoTexts.forEach((promo: any, idx: number) => {
+              if (promo.bbox) {
+                elementsToCapture.push({
+                  category: categoryId,
+                  type: `promo_${idx}`,
+                  bbox: promo.bbox,
+                  selector: promo.selector
+                });
+              }
+            });
+          }
+          
+          // 메뉴/네비게이션
+          if (evidence.menu?.bbox) {
+            elementsToCapture.push({
+              category: categoryId,
+              type: 'menu',
+              bbox: evidence.menu.bbox,
+              selector: evidence.menu.selector
+            });
+          }
+        }
+      }
+      
+      // 수집된 요소들 캡처
+      if (elementsToCapture.length > 0) {
+        try {
+          console.log(`Capturing ${elementsToCapture.length} evidence screenshots...`);
+          const captureConfigs = elementsToCapture.map(elem => ({
+            selector: elem.selector,
+            bbox: elem.bbox,
+            padding: 15
+          }));
+          
+          const captureResults = await puppeteerInstance.captureMultipleElements(
+            url,
+            captureConfigs,
+            {
+              viewport: {
+                width: 375,
+                height: 812,
+                isMobile: true,
+                deviceScaleFactor: 2
+              },
+              waitFor: 2000
+            }
+          );
+          
+          // 결과를 evidence에 매핑
+          captureResults.forEach((result, idx) => {
+            if (result.success) {
+              const elem = elementsToCapture[idx];
+              if (!evidenceScreenshots[elem.category]) {
+                evidenceScreenshots[elem.category] = {};
+              }
+              evidenceScreenshots[elem.category][elem.type] = {
+                screenshot: result.screenshot,
+                localPath: result.localPath,
+                bbox: result.bbox
+              };
+            }
+          });
+          
+          console.log('Evidence screenshots captured successfully');
+        } catch (error) {
+          console.error('Failed to capture evidence screenshots:', error);
+        } finally {
+          await puppeteerInstance.cleanup();
+        }
+      }
+    }
+
     // 5. 점수 계산 (80%) - ScorerV2 사용
     await updateProgress(75, 'Calculating scores...');
     
@@ -233,7 +340,7 @@ export async function runAudit(
     
     const reporter = new Reporter();
     
-    // 최종 결과 구성
+    // 최종 결과 구성 - evidence에 스크린샷 추가
     finalResult = {
       runId,
       url,
@@ -241,14 +348,50 @@ export async function runAudit(
       startedAt: new Date(startTime),
       elapsedMs: Date.now() - startTime,
       totalScore: scoreResult.totalScore,
-      checks: Object.entries(scoreResult.categoryScores).map(([id, score]) => ({
-        id,
-        score,
-        source: scoreResult.scoreSources[id], // 점수 출처 (rule/ai/hybrid)
-        metrics: llmOutput.scores[id]?.metrics,
-        evidence: llmOutput.scores[id]?.evidence,
-        insights: llmOutput.scores[id]?.insights || []
-      })),
+      checks: Object.entries(scoreResult.categoryScores).map(([id, score]) => {
+        const evidence = llmOutput.scores[id]?.evidence || {};
+        
+        // Evidence 스크린샷 병합
+        if (evidenceScreenshots[id]) {
+          // CTA 스크린샷 추가
+          if (evidenceScreenshots[id].cta && evidence.cta) {
+            evidence.cta.screenshot = evidenceScreenshots[id].cta.screenshot;
+          }
+          
+          // 로고 스크린샷 추가
+          if (evidenceScreenshots[id].logo && evidence.logo) {
+            evidence.logo.screenshot = evidenceScreenshots[id].logo.screenshot;
+          }
+          
+          // 프로모션 스크린샷 추가
+          if (evidence.promoTexts && Array.isArray(evidence.promoTexts)) {
+            evidence.promoTexts.forEach((promo: any, idx: number) => {
+              if (evidenceScreenshots[id][`promo_${idx}`]) {
+                promo.screenshot = evidenceScreenshots[id][`promo_${idx}`].screenshot;
+              }
+            });
+          }
+          
+          // 메뉴 스크린샷 추가
+          if (evidenceScreenshots[id].menu && evidence.menu) {
+            evidence.menu.screenshot = evidenceScreenshots[id].menu.screenshot;
+          }
+          
+          // 모든 스크린샷을 별도 배열로도 저장
+          evidence.screenshots = Object.values(evidenceScreenshots[id])
+            .map((item: any) => item.screenshot || item.localPath)
+            .filter(Boolean);
+        }
+        
+        return {
+          id,
+          score,
+          source: scoreResult.scoreSources[id], // 점수 출처 (rule/ai/hybrid)
+          metrics: id === 'speed' ? lighthouseData : llmOutput.scores[id]?.metrics,
+          evidence,
+          insights: llmOutput.scores[id]?.insights || []
+        };
+      }),
       expertSummary: llmOutput.expertSummary || undefined,
       purchaseFlow: llmOutput.scores.purchaseFlow?.steps ? {
         ok: llmOutput.scores.purchaseFlow.ok,

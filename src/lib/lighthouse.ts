@@ -175,7 +175,7 @@ export class LighthouseRunner {
    * Lighthouse 결과에서 필요한 메트릭 추출
    */
   private extractMetrics(data: any): LighthouseMetrics {
-    console.log('Extracting metrics from Lighthouse data...');
+    console.log('=== Extracting metrics from Lighthouse data ===');
     
     const audits = data.audits || {};
     const metrics: LighthouseMetrics = {
@@ -185,17 +185,21 @@ export class LighthouseRunner {
     };
 
     // Debug logging
-    console.log('Available audits:', Object.keys(audits));
+    const auditKeys = Object.keys(audits);
+    console.log(`Total audits found: ${auditKeys.length}`);
+    console.log('Looking for metrics: largest-contentful-paint, cumulative-layout-shift, total-blocking-time');
 
     // LCP (Largest Contentful Paint) - 초 단위
     if (audits['largest-contentful-paint']) {
       const lcpValue = audits['largest-contentful-paint'].numericValue;
       if (lcpValue !== undefined && lcpValue !== null) {
         metrics.LCP = lcpValue / 1000;
-        console.log('LCP extracted:', metrics.LCP);
+        console.log(`✅ LCP extracted: ${metrics.LCP}s (raw: ${lcpValue}ms)`);
+      } else {
+        console.log('❌ LCP value is null/undefined');
       }
     } else {
-      console.log('LCP audit not found');
+      console.log('❌ LCP audit not found in results');
     }
 
     // CLS (Cumulative Layout Shift)
@@ -203,10 +207,12 @@ export class LighthouseRunner {
       const clsValue = audits['cumulative-layout-shift'].numericValue;
       if (clsValue !== undefined && clsValue !== null) {
         metrics.CLS = clsValue;
-        console.log('CLS extracted:', metrics.CLS);
+        console.log(`✅ CLS extracted: ${metrics.CLS} (raw: ${clsValue})`);
+      } else {
+        console.log('❌ CLS value is null/undefined');
       }
     } else {
-      console.log('CLS audit not found');
+      console.log('❌ CLS audit not found in results');
     }
 
     // TBT (Total Blocking Time) - 밀리초 단위
@@ -214,10 +220,12 @@ export class LighthouseRunner {
       const tbtValue = audits['total-blocking-time'].numericValue;
       if (tbtValue !== undefined && tbtValue !== null) {
         metrics.TBT = tbtValue;
-        console.log('TBT extracted:', metrics.TBT);
+        console.log(`✅ TBT extracted: ${metrics.TBT}ms (raw: ${tbtValue}ms)`);
+      } else {
+        console.log('❌ TBT value is null/undefined');
       }
     } else {
-      console.log('TBT audit not found');
+      console.log('❌ TBT audit not found in results');
     }
 
     // FCP (First Contentful Paint) - 초 단위
@@ -262,7 +270,14 @@ export class LighthouseRunner {
     }
 
     // Log final metrics
-    console.log('Final extracted metrics:', metrics);
+    console.log('=== Final Lighthouse Metrics ===');
+    console.log(`LCP: ${metrics.LCP}s`);
+    console.log(`CLS: ${metrics.CLS}`);
+    console.log(`TBT: ${metrics.TBT}ms`);
+    console.log(`FCP: ${metrics.FCP || 'N/A'}s`);
+    console.log(`SI: ${metrics.SI || 'N/A'}s`);
+    console.log(`TTI: ${metrics.TTI || 'N/A'}s`);
+    console.log('================================');
 
     return metrics;
   }
