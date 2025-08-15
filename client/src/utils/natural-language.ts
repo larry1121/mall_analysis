@@ -212,6 +212,102 @@ export function describeEvidence(evidence: any): string[] {
   
   if (!evidence) return ['증거 데이터 없음'];
   
+  // 재귀적으로 객체/배열 처리하는 헬퍼 함수
+  const processValue = (value: any, key?: string): string | null => {
+    if (value === null || value === undefined) return null;
+    
+    // 문자열이나 숫자는 그대로 반환
+    if (typeof value === 'string' || typeof value === 'number') {
+      return key ? `${key}: ${value}` : String(value);
+    }
+    
+    // 불리언
+    if (typeof value === 'boolean') {
+      return key ? `${key}: ${value ? '✅' : '❌'}` : (value ? '✅' : '❌');
+    }
+    
+    // 배열
+    if (Array.isArray(value)) {
+      if (value.length === 0) return null;
+      
+      // 객체 배열인 경우
+      if (typeof value[0] === 'object') {
+        const items = value.map(item => {
+          if (item && typeof item === 'object') {
+            if (item.text && item.bbox) {
+              return `"${item.text}" (위치: ${describeBBox(item.bbox)})`;
+            } else if (item.text) {
+              return item.text;
+            } else if (item.selector) {
+              return item.selector;
+            }
+            // 객체의 첫 번째 문자열 값 반환
+            const firstStringValue = Object.values(item).find(v => typeof v === 'string');
+            if (firstStringValue) return firstStringValue;
+          } else if (typeof item === 'string') {
+            return item;
+          }
+          return null;
+        }).filter(Boolean);
+        
+        if (items.length > 0) {
+          return key ? `${key}: ${items.join(', ')}` : items.join(', ');
+        }
+      } else {
+        // 단순 배열
+        return key ? `${key}: ${value.join(', ')}` : value.join(', ');
+      }
+    }
+    
+    // 객체
+    if (typeof value === 'object') {
+      // bbox가 있는 객체
+      if (value.bbox && Array.isArray(value.bbox)) {
+        const text = value.text || key || '요소';
+        return `${text} (위치: ${describeBBox(value.bbox)})`;
+      }
+      
+      // selector와 text가 있는 객체
+      if (value.selector && value.text) {
+        return `${value.text} (위치: ${value.selector})`;
+      }
+      
+      // text만 있는 객체
+      if (value.text) {
+        return value.text;
+      }
+      
+      // countOnScreenshot 같은 특수 키 처리
+      if (value.countOnScreenshot !== undefined) {
+        return `${key || '개수'}: ${value.countOnScreenshot}`;
+      }
+      
+      // 키가 너무 많은 복잡한 객체는 간단히 처리
+      const keys = Object.keys(value);
+      if (keys.length > 10) {
+        return key ? `${key}: [복잡한 데이터]` : '[복잡한 데이터]';
+      }
+      
+      // 기타 객체는 키-값 쌍으로 처리
+      const parts: string[] = [];
+      Object.entries(value).forEach(([k, v]) => {
+        // screenshot, bbox 같은 긴 데이터는 건너뛰기
+        if (k === 'screenshot' || k === 'localPath') return;
+        
+        const processed = processValue(v, k);
+        if (processed && !processed.includes('[복잡한 데이터]')) {
+          parts.push(processed);
+        }
+      });
+      
+      if (parts.length > 0) {
+        return key ? `${key}: ${parts.join(', ')}` : parts.join(', ');
+      }
+    }
+    
+    return null;
+  };
+  
   // Lighthouse 경로 (Speed 카테고리)
   if (evidence.lighthousePath) {
     if (evidence.lighthousePath.includes('unavailable')) {
@@ -262,8 +358,37 @@ export function describeEvidence(evidence: any): string[] {
   
   // 메뉴
   if (evidence.menu !== undefined || evidence.menuCount !== undefined) {
-    const count = evidence.menuCount || (Array.isArray(evidence.menu) ? evidence.menu.length : 0);
-    descriptions.push(describeMenuCount(count));
+    let count = 0;
+    
+    // menuCount 처리
+    if (evidence.menuCount !== undefined) {
+      if (typeof evidence.menuCount === 'number') {
+        count = evidence.menuCount;
+      } else if (typeof evidence.menuCount === 'object' && evidence.menuCount !== null) {
+        // 객체인 경우 처리
+        const processed = processValue(evidence.menuCount, '메뉴');
+        if (processed) {
+          descriptions.push(processed);
+        }
+      }
+    } 
+    // menu 처리
+    else if (evidence.menu !== undefined) {
+      if (Array.isArray(evidence.menu)) {
+        count = evidence.menu.length;
+      } else if (typeof evidence.menu === 'object' && evidence.menu !== null) {
+        // 객체인 경우 처리
+        const processed = processValue(evidence.menu, '메뉴');
+        if (processed) {
+          descriptions.push(processed);
+        }
+      }
+    }
+    
+    // 숫자 count가 있는 경우에만 describeMenuCount 호출
+    if (typeof count === 'number' && count >= 0 && !descriptions.some(d => d.includes('메뉴'))) {
+      descriptions.push(describeMenuCount(count));
+    }
   }
   
   // 검색
@@ -288,7 +413,27 @@ export function describeEvidence(evidence: any): string[] {
   // 정책
   if (evidence.policies !== undefined) {
     if (Array.isArray(evidence.policies) && evidence.policies.length > 0) {
-      descriptions.push(`✅ 정책: ${describeList(evidence.policies, '정책')}`);
+      const policyTexts = evidence.policies.map(p => {
+        if (typeof p === 'string') return p;
+        if (p && typeof p === 'object' && p.text) return p.text;
+        if (p && typeof p === 'object') {
+          // 객체의 값들을 문자열로 변환
+          const values = Object.values(p).filter(v => 
+            typeof v === 'string' || typeof v === 'number'
+          );
+          return values.join(' ');
+        }
+        return null;
+      }).filter(Boolean);
+      
+      if (policyTexts.length > 0) {
+        descriptions.push(`✅ 정책: ${policyTexts.join(', ')}`);
+      }
+    } else if (typeof evidence.policies === 'string') {
+      descriptions.push(`정책: ${evidence.policies}`);
+    } else if (typeof evidence.policies === 'object' && evidence.policies !== null) {
+      const processed = processValue(evidence.policies, '정책');
+      if (processed) descriptions.push(processed);
     } else {
       descriptions.push('⚠️ 정책 정보 없음');
     }
@@ -326,7 +471,27 @@ export function describeEvidence(evidence: any): string[] {
   
   // 팝업
   if (evidence.popups !== undefined) {
-    descriptions.push(describePopupCount(evidence.popups));
+    if (typeof evidence.popups === 'object' && evidence.popups !== null) {
+      // count 속성이 있는 경우
+      if (typeof evidence.popups.count === 'number') {
+        descriptions.push(describePopupCount(evidence.popups.count));
+      } else if (evidence.popups.countOnScreenshot !== undefined) {
+        // countOnScreenshot 속성이 있는 경우
+        if (typeof evidence.popups.countOnScreenshot === 'number') {
+          descriptions.push(describePopupCount(evidence.popups.countOnScreenshot));
+        } else {
+          descriptions.push(`팝업: ${evidence.popups.countOnScreenshot}`);
+        }
+      } else {
+        // 기타 객체 처리
+        const processed = processValue(evidence.popups, '팝업');
+        if (processed) descriptions.push(processed);
+      }
+    } else if (typeof evidence.popups === 'number') {
+      descriptions.push(describePopupCount(evidence.popups));
+    } else if (typeof evidence.popups === 'string') {
+      descriptions.push(`팝업: ${evidence.popups}`);
+    }
   }
   
   // 비주얼 계층
@@ -380,13 +545,12 @@ export function describeEvidence(evidence: any): string[] {
     if (!['lighthousePath', 'cta', 'promoTexts', 'logo', 'brandColors', 'menu', 'menuCount', 
          'searchPresent', 'hasBestNew', 'payments', 'policies', 'certifications', 'reviews',
          'altRatio', 'imageQuality', 'popups', 'visualHierarchy', 'viewportMeta', 'overflow',
-         'touchTargets', 'purchaseSteps', 'metaTags', 'analytics'].includes(key)) {
+         'touchTargets', 'purchaseSteps', 'metaTags', 'analytics', 'screenshots'].includes(key)) {
       const value = evidence[key];
       if (value !== null && value !== undefined) {
-        if (typeof value === 'boolean') {
-          descriptions.push(`${key}: ${value ? '✅' : '❌'}`);
-        } else if (typeof value === 'string' || typeof value === 'number') {
-          descriptions.push(`${key}: ${value}`);
+        const processed = processValue(value, key);
+        if (processed) {
+          descriptions.push(processed);
         }
       }
     }

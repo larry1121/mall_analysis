@@ -210,49 +210,38 @@ export async function runAudit(
       for (const [categoryId, categoryData] of Object.entries(llmOutput.scores)) {
         const evidence = (categoryData as any).evidence;
         if (evidence) {
-          // CTA 버튼
-          if (evidence.cta?.bbox) {
-            elementsToCapture.push({
-              category: categoryId,
-              type: 'cta',
-              bbox: evidence.cta.bbox,
-              selector: evidence.cta.selector
-            });
-          }
+          // 모든 evidence 항목을 순회하여 bbox 찾기
+          const processEvidence = (obj: any, path: string = '') => {
+            if (!obj) return;
+            
+            // 직접 bbox를 가진 경우
+            if (obj.bbox && Array.isArray(obj.bbox) && obj.bbox.length === 4) {
+              elementsToCapture.push({
+                category: categoryId,
+                type: path || 'element',
+                bbox: obj.bbox,
+                selector: obj.selector,
+                text: obj.text
+              });
+            }
+            
+            // 배열인 경우
+            if (Array.isArray(obj)) {
+              obj.forEach((item, idx) => {
+                processEvidence(item, `${path}_${idx}`);
+              });
+            }
+            // 객체인 경우 재귀적으로 탐색
+            else if (typeof obj === 'object') {
+              Object.entries(obj).forEach(([key, value]) => {
+                if (key !== 'bbox' && key !== 'selector' && key !== 'text') {
+                  processEvidence(value, path ? `${path}_${key}` : key);
+                }
+              });
+            }
+          };
           
-          // 로고
-          if (evidence.logo?.bbox) {
-            elementsToCapture.push({
-              category: categoryId,
-              type: 'logo',
-              bbox: evidence.logo.bbox,
-              selector: evidence.logo.selector
-            });
-          }
-          
-          // 프로모션 텍스트들
-          if (evidence.promoTexts && Array.isArray(evidence.promoTexts)) {
-            evidence.promoTexts.forEach((promo: any, idx: number) => {
-              if (promo.bbox) {
-                elementsToCapture.push({
-                  category: categoryId,
-                  type: `promo_${idx}`,
-                  bbox: promo.bbox,
-                  selector: promo.selector
-                });
-              }
-            });
-          }
-          
-          // 메뉴/네비게이션
-          if (evidence.menu?.bbox) {
-            elementsToCapture.push({
-              category: categoryId,
-              type: 'menu',
-              bbox: evidence.menu.bbox,
-              selector: evidence.menu.selector
-            });
-          }
+          processEvidence(evidence);
         }
       }
       
@@ -260,9 +249,15 @@ export async function runAudit(
       if (elementsToCapture.length > 0) {
         try {
           console.log(`Capturing ${elementsToCapture.length} evidence screenshots...`);
+          console.log('Elements to capture (first 3):', JSON.stringify(elementsToCapture.slice(0, 3), null, 2));
           const captureConfigs = elementsToCapture.map(elem => ({
             selector: elem.selector,
-            bbox: elem.bbox,
+            bbox: elem.bbox ? {
+              x: elem.bbox[0],
+              y: elem.bbox[1],
+              width: elem.bbox[2],
+              height: elem.bbox[3]
+            } : undefined,
             padding: 15
           }));
           
@@ -280,22 +275,43 @@ export async function runAudit(
             }
           );
           
+          console.log(`Capture results: ${captureResults.length} screenshots, ${captureResults.filter(r => r.success).length} successful`);
+          
           // 결과를 evidence에 매핑
           captureResults.forEach((result, idx) => {
             if (result.success) {
               const elem = elementsToCapture[idx];
               if (!evidenceScreenshots[elem.category]) {
-                evidenceScreenshots[elem.category] = {};
+                evidenceScreenshots[elem.category] = {
+                  items: [],
+                  byType: {}
+                };
               }
-              evidenceScreenshots[elem.category][elem.type] = {
+              // bbox를 다시 배열 형식으로 변환
+              const bboxArray = elem.bbox; // 원래 배열 형식 사용
+              
+              // 타입별로 저장
+              evidenceScreenshots[elem.category].byType[elem.type] = {
                 screenshot: result.screenshot,
                 localPath: result.localPath,
-                bbox: result.bbox
+                bbox: bboxArray,
+                text: elem.text
               };
+              // 배열로도 저장
+              evidenceScreenshots[elem.category].items.push({
+                type: elem.type,
+                screenshot: result.screenshot,
+                localPath: result.localPath,
+                bbox: bboxArray,
+                text: elem.text
+              });
             }
           });
           
           console.log('Evidence screenshots captured successfully');
+          console.log('evidenceScreenshots keys:', Object.keys(evidenceScreenshots));
+          console.log('Total screenshot items:', Object.values(evidenceScreenshots).reduce((sum: number, cat: any) => 
+            sum + (cat.items ? cat.items.length : 0), 0));
         } catch (error) {
           console.error('Failed to capture evidence screenshots:', error);
         } finally {
@@ -353,34 +369,48 @@ export async function runAudit(
         
         // Evidence 스크린샷 병합
         if (evidenceScreenshots[id]) {
-          // CTA 스크린샷 추가
-          if (evidenceScreenshots[id].cta && evidence.cta) {
-            evidence.cta.screenshot = evidenceScreenshots[id].cta.screenshot;
-          }
+          const screenshotData = evidenceScreenshots[id];
           
-          // 로고 스크린샷 추가
-          if (evidenceScreenshots[id].logo && evidence.logo) {
-            evidence.logo.screenshot = evidenceScreenshots[id].logo.screenshot;
-          }
-          
-          // 프로모션 스크린샷 추가
-          if (evidence.promoTexts && Array.isArray(evidence.promoTexts)) {
-            evidence.promoTexts.forEach((promo: any, idx: number) => {
-              if (evidenceScreenshots[id][`promo_${idx}`]) {
-                promo.screenshot = evidenceScreenshots[id][`promo_${idx}`].screenshot;
+          // 재귀적으로 evidence에 스크린샷 추가
+          const addScreenshots = (obj: any, path: string = '') => {
+            if (!obj) return;
+            
+            // bbox를 가진 객체에 스크린샷 추가
+            if (obj.bbox && screenshotData.byType) {
+              const typeKey = Object.keys(screenshotData.byType).find(key => 
+                key === path || key.includes(path) || path.includes(key)
+              );
+              if (typeKey && screenshotData.byType[typeKey]) {
+                obj.screenshot = screenshotData.byType[typeKey].screenshot;
               }
-            });
-          }
+            }
+            
+            // 배열 처리
+            if (Array.isArray(obj)) {
+              obj.forEach((item, idx) => {
+                addScreenshots(item, `${path}_${idx}`);
+              });
+            }
+            // 객체 처리
+            else if (typeof obj === 'object') {
+              Object.entries(obj).forEach(([key, value]) => {
+                if (key !== 'bbox' && key !== 'selector' && key !== 'text' && key !== 'screenshot') {
+                  addScreenshots(value, path ? `${path}_${key}` : key);
+                }
+              });
+            }
+          };
           
-          // 메뉴 스크린샷 추가
-          if (evidenceScreenshots[id].menu && evidence.menu) {
-            evidence.menu.screenshot = evidenceScreenshots[id].menu.screenshot;
-          }
+          addScreenshots(evidence);
           
           // 모든 스크린샷을 별도 배열로도 저장
-          evidence.screenshots = Object.values(evidenceScreenshots[id])
-            .map((item: any) => item.screenshot || item.localPath)
-            .filter(Boolean);
+          if (screenshotData.items && screenshotData.items.length > 0) {
+            evidence.screenshots = screenshotData.items.map((item: any) => ({
+              screenshot: item.screenshot,
+              text: item.text,
+              bbox: item.bbox
+            }));
+          }
         }
         
         return {

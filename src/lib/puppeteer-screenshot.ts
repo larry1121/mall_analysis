@@ -83,7 +83,9 @@ export class PuppeteerScreenshot {
         '--disable-gpu',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
+        '--disable-renderer-backgrounding',
+        '--disable-blink-features=AutomationControlled',  // Hide automation
+        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       ]
     });
 
@@ -124,6 +126,34 @@ export class PuppeteerScreenshot {
     }
 
     const page = await this.browser.newPage();
+    
+    // Cloudflare bypass: Remove webdriver property
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => false,
+      });
+    });
+    
+    // Additional evasion techniques
+    await page.evaluateOnNewDocument(() => {
+      // Override the `plugins` property to use a custom getter
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      
+      // Override the `languages` property to use a custom getter
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['ko-KR', 'ko', 'en-US', 'en'],
+      });
+      
+      // Override the `permissions` property
+      const originalQuery = window.navigator.permissions.query;
+      window.navigator.permissions.query = (parameters: any) => (
+        parameters.name === 'notifications'
+          ? Promise.resolve({ state: Notification.permission } as PermissionStatus)
+          : originalQuery(parameters)
+      );
+    });
 
     try {
       // Set viewport
@@ -135,10 +165,18 @@ export class PuppeteerScreenshot {
       };
       await page.setViewport(viewport);
 
-      // Navigate to URL
+      // Set User-Agent to avoid detection
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      
+      // Set additional headers to avoid detection
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+      });
+      
+      // Navigate to URL with increased timeout
       await page.goto(url, {
         waitUntil: config.waitUntil || 'networkidle2',
-        timeout: 30000
+        timeout: 60000  // Increased from 30000 to 60000
       });
 
       // Wait if specified
@@ -359,10 +397,13 @@ export class PuppeteerScreenshot {
       };
       await page.setViewport(viewport);
 
-      // Navigate to URL
+      // Set User-Agent to avoid detection
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      
+      // Navigate to URL with increased timeout
       await page.goto(url, {
         waitUntil: pageConfig.waitUntil || 'networkidle2',
-        timeout: 30000
+        timeout: 60000  // Increased from 30000 to 60000
       });
 
       // Wait for content
@@ -477,6 +518,26 @@ export class PuppeteerScreenshot {
 
     const page = await this.browser.newPage();
     const results: ElementScreenshotResult[] = [];
+    
+    // Cloudflare bypass: Remove webdriver property
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => false,
+      });
+    });
+    
+    // Additional evasion techniques
+    await page.evaluateOnNewDocument(() => {
+      // Override the `plugins` property to use a custom getter
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      
+      // Override the `languages` property to use a custom getter
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['ko-KR', 'ko', 'en-US', 'en'],
+      });
+    });
 
     try {
       // Set viewport
@@ -487,11 +548,19 @@ export class PuppeteerScreenshot {
         isMobile: false
       };
       await page.setViewport(viewport);
+      
+      // Set User-Agent to avoid detection
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      
+      // Set additional headers to avoid detection
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+      });
 
-      // Navigate to URL once
+      // Navigate to URL once with increased timeout
       await page.goto(url, {
         waitUntil: pageConfig.waitUntil || 'networkidle2',
-        timeout: 30000
+        timeout: 60000  // Increased from 30000 to 60000
       });
 
       // Wait for content

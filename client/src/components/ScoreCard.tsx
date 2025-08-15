@@ -160,21 +160,35 @@ export default function ScoreCard({ check }: ScoreCardProps) {
             
             {/* Evidence Screenshots if available */}
             {check.evidence.screenshots && Array.isArray(check.evidence.screenshots) && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {check.evidence.screenshots.slice(0, 3).map((screenshot: string, idx: number) => (
-                  <button
-                    key={idx}
-                    onClick={() => setShowImage(screenshot)}
-                    className="relative w-20 h-20 rounded border-2 border-gray-200 overflow-hidden hover:border-blue-500 transition-colors"
-                  >
-                    <img 
-                      src={screenshot.startsWith('data:') ? screenshot : `/api/screenshots/${screenshot}`}
-                      alt={`Evidence ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-opacity" />
-                  </button>
-                ))}
+              <div className="mt-3">
+                <div className="text-xs font-medium text-gray-500 mb-2">📸 스크린샷 증거</div>
+                <div className="flex flex-wrap gap-2">
+                  {check.evidence.screenshots.slice(0, 6).map((item: any, idx: number) => {
+                    const screenshotUrl = typeof item === 'string' ? item : item.screenshot;
+                    const text = typeof item === 'object' ? item.text : null;
+                    
+                    return (
+                      <div key={idx} className="relative group">
+                        <button
+                          onClick={() => setShowImage(screenshotUrl)}
+                          className="relative w-20 h-20 rounded border-2 border-gray-200 overflow-hidden hover:border-blue-500 transition-colors"
+                        >
+                          <img 
+                            src={screenshotUrl?.startsWith('data:') ? screenshotUrl : `/api/screenshots/${screenshotUrl}`}
+                            alt={text || `Evidence ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-opacity" />
+                        </button>
+                        {text && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none truncate">
+                            {text}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
