@@ -92,17 +92,10 @@ export class Reporter {
         console.log('Generating PDF with Puppeteer from data...');
         const pdfGenerator = createPuppeteerPDFGenerator();
         
-        // 서버 환경에서는 데이터를 HTML로 변환 후 PDF 생성
-        // 개발 환경에서 React UI가 실행 중이면 React UI 사용 가능
-        const isDevWithUI = process.env.NODE_ENV === 'development' && process.env.CLIENT_URL;
-        
-        if (isDevWithUI) {
-          console.log('Using React UI for PDF generation');
-          return await pdfGenerator.generatePDFFromReactUI(result);
-        } else {
-          console.log('Using HTML template for PDF generation');
-          return await pdfGenerator.generatePDFFromData(result);
-        }
+        // HTML 템플릿 방식을 기본으로 사용
+        // React UI 방식은 현재 데이터 로딩 이슈로 비활성화
+        console.log('Generating PDF with HTML template (default method)');
+        return await pdfGenerator.generatePDFFromData(result);
       } catch (error) {
         console.error('Puppeteer PDF generation failed, falling back to PDFKit:', error);
         // 실패 시 PDFKit으로 폴백

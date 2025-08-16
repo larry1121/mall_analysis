@@ -48,17 +48,42 @@ export class PuppeteerPDFGenerator {
       });
       
       // 페이지 방문 및 렌더링 대기
+      console.log(`Opening print page: ${printUrl}`);
       await page.goto(printUrl, {
-        waitUntil: 'networkidle0',
+        waitUntil: ['networkidle0', 'domcontentloaded'],
         timeout: 30000
       });
 
+      // 페이지가 완전히 로드될 때까지 추가 대기
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       // React 컴포넌트가 완전히 렌더링될 때까지 대기
       try {
-        await page.waitForSelector('.print-result-page', { timeout: 10000 });
-      } catch {
+        console.log('Waiting for .print-result-page selector...');
+        await page.waitForSelector('.print-result-page', { 
+          timeout: 20000,
+          visible: true 
+        });
+        console.log('Found .print-result-page selector');
+      } catch (e) {
+        console.log('Failed to find .print-result-page, trying main selector...');
         // 폴백: 일반 선택자로 시도
-        await page.waitForSelector('main', { timeout: 10000 });
+        try {
+          await page.waitForSelector('main', { 
+            timeout: 20000,
+            visible: true 
+          });
+          console.log('Found main selector');
+        } catch (e2) {
+          console.log('Failed to find main selector, trying #root...');
+          // 추가 폴백: React root 엘리먼트
+          await page.waitForSelector('#root', { 
+            timeout: 10000,
+            visible: true 
+          });
+          // root가 있으면 잠시 더 기다려서 React가 렌더링되도록
+          await new Promise(resolve => setTimeout(resolve, 5000));
+        }
       }
       
       // 차트와 이미지가 로드될 시간 확보
@@ -395,6 +420,30 @@ export class PuppeteerPDFGenerator {
           color: #6b7280;
           line-height: 1.5;
         }
+        
+        .screenshot-section {
+          margin-top: 40px;
+          page-break-before: always;
+        }
+        
+        .screenshot-container {
+          margin: 20px 0;
+          text-align: center;
+        }
+        
+        .screenshot-image {
+          max-width: 100%;
+          max-height: 400px;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .screenshot-caption {
+          font-size: 12px;
+          color: #6b7280;
+          margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -508,6 +557,27 @@ export class PuppeteerPDFGenerator {
             </div>
         </div>
         ` : ''}
+        
+        ${result.screenshots?.main ? `
+        <!-- 스크린샷 페이지 -->
+        <div class="page">
+            <h2 class="page-title">홈페이지 스크린샷</h2>
+            
+            <div class="screenshot-section">
+                <div class="screenshot-container">
+                    <img src="${this.getScreenshotDataUrl(result.screenshots.main)}" 
+                         alt="홈페이지 메인 스크린샷" 
+                         class="screenshot-image" />
+                    <div class="screenshot-caption">메인 페이지 전체 화면</div>
+                </div>
+            </div>
+            
+            ${result.evidenceScreenshots ? `
+                <h3 style="font-size: 20px; margin-top: 40px; margin-bottom: 20px;">주요 요소 스크린샷</h3>
+                ${this.generateEvidenceScreenshots(result.evidenceScreenshots)}
+            ` : ''}
+        </div>
+        ` : ''}
     </div>
 </body>
 </html>`;
@@ -541,6 +611,59 @@ export class PuppeteerPDFGenerator {
       seoAnalytics: 'SEO/분석'
     };
     return names[id] || id;
+  }
+
+  private getScreenshotDataUrl(screenshotPath: string): string {
+    // 실제 구현에서는 스크린샷 파일을 읽어서 base64로 변환해야 함
+    // 여기서는 임시로 외부 URL 반환 (실제로는 로컬 파일 경로를 base64로 변환)
+    if (screenshotPath.startsWith('http')) {
+      return screenshotPath;
+    }
+    // 로컬 파일 경로인 경우 file:// 프로토콜 사용
+    if (screenshotPath.startsWith('/')) {
+      return `file://${screenshotPath}`;
+    }
+    return screenshotPath;
+  }
+
+  private generateEvidenceScreenshots(evidenceScreenshots: any): string {
+    if (!evidenceScreenshots) return '';
+    
+    let html = '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">';
+    
+    // 주요 카테고리의 스크린샷만 선택적으로 표시
+    const priorityCategories = ['firstView', 'bi', 'navigation', 'uspPromo'];
+    let screenshotCount = 0;
+    const maxScreenshots = 6;
+    
+    for (const category of priorityCategories) {
+      if (evidenceScreenshots[category] && screenshotCount < maxScreenshots) {
+        const screenshots = Array.isArray(evidenceScreenshots[category]) 
+          ? evidenceScreenshots[category] 
+          : [evidenceScreenshots[category]];
+          
+        for (const screenshot of screenshots.slice(0, 2)) {
+          if (screenshotCount >= maxScreenshots) break;
+          
+          if (screenshot && screenshot.path) {
+            html += `
+              <div class="screenshot-container" style="break-inside: avoid;">
+                <img src="${this.getScreenshotDataUrl(screenshot.path)}" 
+                     alt="${this.getCategoryName(category)}" 
+                     style="width: 100%; max-height: 200px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 4px;" />
+                <div style="font-size: 11px; color: #6b7280; margin-top: 5px; text-align: center;">
+                  ${this.getCategoryName(category)}${screenshot.label ? ` - ${screenshot.label}` : ''}
+                </div>
+              </div>
+            `;
+            screenshotCount++;
+          }
+        }
+      }
+    }
+    
+    html += '</div>';
+    return html;
   }
 
   async cleanup(): Promise<void> {
