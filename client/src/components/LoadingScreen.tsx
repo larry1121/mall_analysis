@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion'
-import { Loader2 } from 'lucide-react'
 
 interface LoadingScreenProps {
   progress?: number
@@ -30,15 +29,12 @@ export default function LoadingScreen({ progress = 0, status = 'pending' }: Load
       >
         <div className="text-center">
           {/* Spinner */}
-          <div className="relative inline-flex items-center justify-center mb-6">
+          <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-              className="absolute inset-0"
-            >
-              <div className="w-24 h-24 rounded-full border-4 border-primary-200 border-t-primary-600" />
-            </motion.div>
-            <Loader2 className="w-8 h-8 text-primary-600 animate-pulse" />
+              className="w-24 h-24 rounded-full border-4 border-primary-200 border-t-primary-600"
+            />
           </div>
 
           {/* Status Text */}
