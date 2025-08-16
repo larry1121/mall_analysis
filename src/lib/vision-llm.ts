@@ -1,15 +1,15 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { LLMGraderInput, LLMGraderOutput, CheckResult, PurchaseFlowStep } from '../types/index.js';
+import { LLMGraderInput, LLMGraderOutput } from '../types/index.js';
 
 // Zod 스키마 정의 - LLM 출력 검증용
-const BBoxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
+// const BBoxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
 
-const EvidenceItemSchema = z.object({
-  text: z.string().optional(),
-  bbox: BBoxSchema.optional(),
-  selector: z.string().optional()
-});
+// const EvidenceItemSchema = z.object({
+//   text: z.string().optional(),
+//   bbox: BBoxSchema.optional(),
+//   selector: z.string().optional()
+// });
 
 const CheckResultSchema = z.object({
   id: z.string(), // Required for CheckResult interface
@@ -447,7 +447,7 @@ ${input.html.substring(0, 20000)}
   /**
    * Anthropic Claude 사용 시 대체 구현
    */
-  async gradeWithClaude(input: LLMGraderInput, apiKey: string): Promise<LLMGraderOutput> {
+  async gradeWithClaude(_input: LLMGraderInput, _apiKey: string): Promise<LLMGraderOutput> {
     // Anthropic SDK를 사용한 구현
     // 비슷한 로직이지만 Claude의 API 형식에 맞춤
     throw new Error('Claude implementation not yet available');
@@ -456,38 +456,11 @@ ${input.html.substring(0, 20000)}
   /**
    * 로컬 모델 사용 시 대체 구현 (Ollama 등)
    */
-  async gradeWithLocalModel(input: LLMGraderInput): Promise<LLMGraderOutput> {
+  async gradeWithLocalModel(_input: LLMGraderInput): Promise<LLMGraderOutput> {
     // 로컬 모델 API 호출
     throw new Error('Local model implementation not yet available');
   }
 
-  /**
-   * 증거 강제 검증
-   */
-  private validateEvidence(output: any): boolean {
-    // 각 항목이 최소한 하나의 증거를 가지고 있는지 확인
-    for (const [key, value] of Object.entries(output.scores)) {
-      if (key === 'speed') continue; // speed는 Lighthouse 데이터 사용
-      
-      const check = value as any;
-      if (!check.evidence || Object.keys(check.evidence).length === 0) {
-        console.warn(`No evidence for ${key}, setting score to 0`);
-        check.score = 0;
-        check.insights.push('증거 부족으로 0점 처리');
-      }
-    }
-    return true;
-  }
-
-  /**
-   * 점수 정규화 (0-10 범위 강제)
-   */
-  private normalizeScores(output: any): void {
-    for (const [key, value] of Object.entries(output.scores)) {
-      const check = value as any;
-      check.score = Math.max(0, Math.min(10, check.score));
-    }
-  }
 
   /**
    * 헬퍼: sleep
@@ -628,7 +601,7 @@ ${input.html.substring(0, 20000)}
  * 팩토리 함수
  */
 export function createVisionLLMGrader(): VisionLLMGrader {
-  const provider = process.env.LLM_PROVIDER || 'openai';
+  // const provider = process.env.LLM_PROVIDER || 'openai';
   const apiKey = process.env.LLM_API_KEY;
   const model = process.env.LLM_MODEL || 'gpt-5'; // gpt-5 사용
 

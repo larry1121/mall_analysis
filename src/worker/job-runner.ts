@@ -1,13 +1,13 @@
-import { AuditResult, CheckResult, LLMGraderInput } from '../types/index.js';
+import { AuditResult, LLMGraderInput } from '../types/index.js';
 import { createFirecrawlClient, FirecrawlClient } from '../lib/firecrawl.js';
-import { createLighthouseRunner, LighthouseRunner } from '../lib/lighthouse.js';
-import { createVisionLLMGrader, VisionLLMGrader } from '../lib/vision-llm.js';
-import { createScorer, Scorer } from '../lib/scorer.js';
+import { createLighthouseRunner } from '../lib/lighthouse.js';
+import { createVisionLLMGrader } from '../lib/vision-llm.js';
+// import { Scorer } from '../lib/scorer.js';
 import { createScorerV2 } from '../lib/scorer-v2.js';
 import { Reporter } from '../lib/reporter.js';
 import { getStorage } from '../utils/storage.js';
 import * as cvUtils from '../lib/cv-utils.js';
-import { getPuppeteerScreenshot, PuppeteerScreenshot } from '../lib/puppeteer-screenshot.js';
+import { getPuppeteerScreenshot } from '../lib/puppeteer-screenshot.js';
 
 export async function runAudit(
   url: string,
@@ -163,8 +163,7 @@ export async function runAudit(
       html: htmlContent,
       screenshots: {
         firstView: screenshotData?.screenshot || firecrawlData?.screenshot || '',
-        actions: firecrawlData?.actions?.screenshots || [],
-        localPath: screenshotData?.localPath
+        actions: firecrawlData?.actions?.screenshots || []
       }
     };
 
