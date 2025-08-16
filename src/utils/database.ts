@@ -236,6 +236,10 @@ export class Database {
         fields.push(`error = $${paramCount++}`);
         values.push(updates.error);
       }
+      if ((updates as any).platform !== undefined) {
+        fields.push(`platform = $${paramCount++}`);
+        values.push((updates as any).platform);
+      }
 
       fields.push(`updated_at = CURRENT_TIMESTAMP`);
       values.push(runId);

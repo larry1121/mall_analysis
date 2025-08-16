@@ -368,6 +368,7 @@ export async function runAudit(
       startedAt: new Date(startTime),
       elapsedMs: Date.now() - startTime,
       totalScore: scoreResult.totalScore,
+      platform,
       checks: Object.entries(scoreResult.categoryScores).map(([id, score]) => {
         const evidence = llmOutput.scores[id]?.evidence || {};
         

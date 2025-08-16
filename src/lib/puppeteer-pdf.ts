@@ -40,10 +40,10 @@ export class PuppeteerPDFGenerator {
       // 실제 Result 페이지를 PDF 모드로 열기
       const printUrl = `http://localhost:5173/print-result/${result.runId}?pdf=true`;
       
-      // A4 크기에 맞는 뷰포트 설정
+      // A4 크기에 맞는 뷰포트 설정 (더 넓은 뷰포트로 더 많은 콘텐츠 포함)
       await page.setViewport({
-        width: 1200,
-        height: 1600,
+        width: 1400,
+        height: 2000,
         deviceScaleFactor: 2
       });
       
@@ -55,7 +55,7 @@ export class PuppeteerPDFGenerator {
       });
 
       // 페이지가 완전히 로드될 때까지 추가 대기
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       // React 컴포넌트가 완전히 렌더링될 때까지 대기
       try {
@@ -86,8 +86,27 @@ export class PuppeteerPDFGenerator {
         }
       }
       
+      // 스크롤하여 모든 콘텐츠 로드 유도
+      await page.evaluate(() => {
+        return new Promise((resolve) => {
+          let totalHeight = 0;
+          const distance = 100;
+          const timer = setInterval(() => {
+            const scrollHeight = document.body.scrollHeight;
+            window.scrollBy(0, distance);
+            totalHeight += distance;
+
+            if(totalHeight >= scrollHeight - window.innerHeight){
+              clearInterval(timer);
+              window.scrollTo(0, 0); // 맨 위로 다시 스크롤
+              resolve(void 0);
+            }
+          }, 100);
+        });
+      });
+      
       // 차트와 이미지가 로드될 시간 확보
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
       // 모든 이미지가 로드될 때까지 대기
       await page.evaluate(() => {
@@ -139,15 +158,15 @@ export class PuppeteerPDFGenerator {
         `
       });
 
-      // PDF 생성
+      // PDF 생성 - 스케일을 줄여서 더 많은 콘텐츠가 한 페이지에 들어가도록
       const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
         margin: {
-          top: '15mm',
-          right: '15mm',
+          top: '10mm',
+          right: '10mm',
           bottom: '15mm',
-          left: '15mm'
+          left: '10mm'
         },
         displayHeaderFooter: true,
         headerTemplate: '<div></div>',
@@ -157,7 +176,7 @@ export class PuppeteerPDFGenerator {
           </div>
         `,
         preferCSSPageSize: false,
-        scale: 0.9 // 약간 축소하여 여백 확보
+        scale: 0.75 // 더 축소하여 모든 콘텐츠 포함
       });
 
       await page.close();

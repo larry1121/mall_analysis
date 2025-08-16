@@ -91,7 +91,8 @@ async function processJob(job: Job<AuditJobData> | any): Promise<any> {
       status: 'completed',
       elapsedMs: result.elapsedMs,
       totalScore: result.totalScore,
-      screenshots: result.screenshots
+      screenshots: result.screenshots,
+      platform: result.platform
     });
 
     // 체크 결과 저장

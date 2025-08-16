@@ -37,6 +37,7 @@ interface AuditResult {
   progress?: number
   position?: number
   error?: string
+  platform?: string
 }
 
 export default function ResultPage({ runId, onBack }: ResultPageProps) {
@@ -260,7 +261,25 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
               </button>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">분석 결과</h1>
-                <p className="text-sm text-gray-500">{data.url}</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm text-gray-500">{data.url}</p>
+                  {data.platform && (
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                      data.platform === 'cafe24' ? 'bg-orange-100 text-orange-700' :
+                      data.platform === 'imweb' ? 'bg-blue-100 text-blue-700' :
+                      data.platform === 'shopify' ? 'bg-green-100 text-green-700' :
+                      data.platform === 'woocommerce' ? 'bg-purple-100 text-purple-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {data.platform === 'cafe24' ? 'Cafe24' :
+                       data.platform === 'imweb' ? 'IMWEB' :
+                       data.platform === 'shopify' ? 'Shopify' :
+                       data.platform === 'woocommerce' ? 'WooCommerce' :
+                       data.platform === 'unknown' ? '커스텀' :
+                       data.platform || '분석중'}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             

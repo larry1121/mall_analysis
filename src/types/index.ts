@@ -14,6 +14,7 @@ export interface AuditRun {
     main?: string;
     actions?: string[];
   };
+  platform?: string;
 }
 
 export interface Evidence {
@@ -51,6 +52,7 @@ export interface AuditResult extends AuditRun {
     pdf?: string;
     zip?: string;
   };
+  platform?: string;
 }
 
 export interface FirecrawlAction {
