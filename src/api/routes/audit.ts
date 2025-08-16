@@ -262,7 +262,8 @@ export async function auditRoutes(fastify: FastifyInstance) {
       const initialResult = await db.getRun(runId);
       if (initialResult) {
         const job = await queue.getJob(runId);
-        const progress = job ? await job.progress : 0;
+        const progressData = job ? await job.progress : 0;
+        const progress = typeof progressData === 'number' ? progressData : (progressData?.value || 0);
         
         sendEvent({
           runId,
@@ -290,7 +291,8 @@ export async function auditRoutes(fastify: FastifyInstance) {
         // 진행 중인 경우 progress 정보 포함
         if (result.status === 'pending' || result.status === 'processing') {
           const job = await queue.getJob(runId);
-          const progress = job ? await job.progress : 0;
+          const progressData = job ? await job.progress : 0;
+          const progress = typeof progressData === 'number' ? progressData : (progressData?.value || 0);
           
           sendEvent({
             runId,
