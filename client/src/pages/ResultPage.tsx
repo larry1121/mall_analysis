@@ -42,32 +42,94 @@ interface AuditResult {
 export default function ResultPage({ runId, onBack }: ResultPageProps) {
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [downloadingZip, setDownloadingZip] = useState(false)
+  const [data, setData] = useState<AuditResult | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
-  const { data, isLoading, error, refetch } = useQuery<AuditResult>(
-    ['audit', runId],
-    async () => {
-      const response = await axios.get(`/api/audit/${runId}`)
-      // API가 빈 객체를 반환하면 404 에러로 처리
-      if (response.data && Object.keys(response.data).length === 0) {
-        throw new Error('Not found')
-      }
-      return response.data
-    },
-    {
-      refetchInterval: (data) => {
-        // 진행 중이거나 데이터가 없으면 2초마다 리페치
-        if (!data || data?.status === 'pending' || data?.status === 'processing') {
-          return 2000
+  useEffect(() => {
+    let eventSource: EventSource | null = null
+    let interval: NodeJS.Timeout | null = null
+    
+    // 먼저 초기 데이터 로드
+    axios.get(`/api/audit/${runId}`)
+      .then(response => {
+        if (response.data && Object.keys(response.data).length > 0) {
+          setData(response.data)
+          setIsLoading(false)
+          
+          // SSE 연결 설정 - 진행 중인 경우에만
+          if (response.data.status === 'pending' || response.data.status === 'processing') {
+            eventSource = new EventSource(`/api/audit/${runId}/stream`)
+            
+            eventSource.onmessage = (event) => {
+              try {
+                const result = JSON.parse(event.data)
+                setData(result)
+                
+                // 완료 또는 실패 시 연결 종료
+                if (result.status === 'completed' || result.status === 'failed') {
+                  eventSource?.close()
+                }
+              } catch (err) {
+                console.error('Failed to parse SSE data:', err)
+              }
+            }
+
+            eventSource.onerror = (err) => {
+              console.error('SSE connection error:', err)
+              eventSource?.close()
+              
+              // 폴백: 일반 API로 주기적 체크
+              interval = setInterval(() => {
+                axios.get(`/api/audit/${runId}`)
+                  .then(res => {
+                    if (res.data) {
+                      setData(res.data)
+                      if (res.data.status === 'completed' || res.data.status === 'failed') {
+                        if (interval) clearInterval(interval)
+                      }
+                    }
+                  })
+                  .catch(() => {
+                    if (interval) clearInterval(interval)
+                  })
+              }, 3000)
+            }
+          }
+        } else {
+          setIsLoading(false)
+          setError(new Error('Result not found'))
         }
-        return false
-      },
-      // 항상 최신 데이터를 가져오도록 설정
-      cacheTime: 0,
-      staleTime: 0,
-      retry: 3,
-      retryDelay: 1000
+      })
+      .catch(err => {
+        console.error('Failed to load initial data:', err)
+        setError(err)
+        setIsLoading(false)
+      })
+    
+    // 클린업 함수
+    return () => {
+      if (eventSource) {
+        eventSource.close()
+      }
+      if (interval) {
+        clearInterval(interval)
+      }
     }
-  )
+  }, [runId])
+
+  const refetch = () => {
+    setIsLoading(true)
+    axios.get(`/api/audit/${runId}`)
+      .then(response => {
+        setData(response.data)
+        setIsLoading(false)
+      })
+      .catch(err => {
+        setError(err)
+        setIsLoading(false)
+      })
+  }
 
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true)

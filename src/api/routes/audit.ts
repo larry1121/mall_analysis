@@ -235,6 +235,99 @@ export async function auditRoutes(fastify: FastifyInstance) {
   });
 
   /**
+   * GET /api/audit/:runId/stream - SSE로 실시간 상태 업데이트
+   */
+  fastify.get<{
+    Params: { runId: string }
+  }>('/:runId/stream', async (request: FastifyRequest<{ Params: { runId: string } }>, reply: FastifyReply) => {
+    const { runId } = request.params;
+    
+    // SSE 헤더 설정
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no' // nginx 버퍼링 비활성화
+    });
+
+    // 클라이언트 연결 확인
+    const sendEvent = (data: any) => {
+      if (!reply.raw.destroyed) {
+        reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
+      }
+    };
+
+    // 초기 상태 전송
+    try {
+      const initialResult = await db.getRun(runId);
+      if (initialResult) {
+        const job = await queue.getJob(runId);
+        const progress = job ? await job.progress : 0;
+        
+        sendEvent({
+          runId,
+          url: initialResult.url,
+          status: initialResult.status,
+          startedAt: initialResult.startedAt,
+          progress
+        });
+      }
+    } catch (error) {
+      fastify.log.error({ error, runId }, 'Failed to get initial status');
+    }
+
+    // 주기적으로 상태 업데이트 전송 (2초마다)
+    const interval = setInterval(async () => {
+      try {
+        const result = await db.getRun(runId);
+        
+        if (!result) {
+          clearInterval(interval);
+          reply.raw.end();
+          return;
+        }
+
+        // 진행 중인 경우 progress 정보 포함
+        if (result.status === 'pending' || result.status === 'processing') {
+          const job = await queue.getJob(runId);
+          const progress = job ? await job.progress : 0;
+          
+          sendEvent({
+            runId,
+            url: result.url,
+            status: result.status,
+            startedAt: result.startedAt,
+            progress
+          });
+        } 
+        // 완료된 경우 전체 결과 전송 후 연결 종료
+        else if (result.status === 'completed') {
+          const fullResult = await db.getFullResult(runId);
+          sendEvent(fullResult || result);
+          clearInterval(interval);
+          reply.raw.end();
+        }
+        // 실패한 경우 연결 종료
+        else if (result.status === 'failed') {
+          sendEvent(result);
+          clearInterval(interval);
+          reply.raw.end();
+        }
+      } catch (error) {
+        fastify.log.error({ error, runId }, 'Error in SSE stream');
+        clearInterval(interval);
+        reply.raw.end();
+      }
+    }, 2000);
+
+    // 클라이언트 연결 종료 시 정리
+    request.raw.on('close', () => {
+      clearInterval(interval);
+      reply.raw.end();
+    });
+  });
+
+  /**
    * GET /api/audit/:runId/report.pdf - PDF 리포트 다운로드
    */
   fastify.get<{

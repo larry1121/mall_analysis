@@ -175,9 +175,12 @@ export class PuppeteerScreenshot {
       
       // Navigate to URL with increased timeout
       await page.goto(url, {
-        waitUntil: config.waitUntil || 'networkidle2',
-        timeout: 60000  // Increased from 30000 to 60000
+        waitUntil: config.waitUntil || 'networkidle2', // networkidle2로 변경 (500ms 동안 연결 2개 이하)
+        timeout: 60000  // 60초로 조정
       });
+
+      // Initial wait for page setup
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       // Wait if specified
       if (config.waitFor) {
@@ -196,20 +199,155 @@ export class PuppeteerScreenshot {
       // Wait for content to be fully loaded
       await page.waitForSelector('body', { timeout: 10000 });
       
-      // Additional wait for dynamic content
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // First scroll - slow and thorough
+      await this.autoScroll(page);
+      
+      // Wait for lazy loaded content
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Second scroll to ensure all content is loaded
+      await this.autoScroll(page);
+      
+      // Footer가 나타날 때까지 대기 (있는 경우)
+      try {
+        await page.waitForSelector('footer, #footer, .footer', { timeout: 5000 });
+      } catch (e) {
+        // Footer가 없어도 계속 진행
+        console.log('No footer element found, continuing...');
+      }
+      
+      // Wait for any animations to complete
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Force all lazy images to load - 다양한 lazy loading 패턴 처리
+      await page.evaluate(() => {
+        // 모든 이미지 찾기
+        const images = document.querySelectorAll('img');
+        images.forEach(img => {
+          // 다양한 lazy loading 속성들 처리
+          const lazyAttrs = ['data-src', 'data-lazy-src', 'data-original', 'data-img', 'data-lazy', 'data-srcset'];
+          
+          lazyAttrs.forEach(attr => {
+            const value = img.getAttribute(attr);
+            if (value) {
+              if (attr.includes('srcset')) {
+                img.srcset = value;
+              } else {
+                img.src = value;
+              }
+            }
+          });
+          
+          // loading 속성을 eager로 변경
+          if (img.hasAttribute('loading')) {
+            img.loading = 'eager';
+          }
+          
+          // lazyload 클래스 제거
+          img.classList.remove('lazyload', 'lazy', 'lazy-loading');
+        });
+        
+        // 백그라운드 이미지도 처리
+        const elementsWithBg = document.querySelectorAll('[data-bg], [data-background], [data-background-image]');
+        elementsWithBg.forEach(el => {
+          const bgAttrs = ['data-bg', 'data-background', 'data-background-image'];
+          bgAttrs.forEach(attr => {
+            const value = el.getAttribute(attr);
+            if (value) {
+              (el as HTMLElement).style.backgroundImage = `url(${value})`;
+            }
+          });
+        });
+      });
+      
+      // Wait for all images to load
+      await page.evaluate(() => {
+        return Promise.all(
+          Array.from(document.images)
+            .filter(img => !img.complete)
+            .map(img => new Promise((resolve, reject) => {
+              img.addEventListener('load', resolve);
+              img.addEventListener('error', resolve);
+              setTimeout(resolve, 10000); // 10초 timeout으로 증가
+            }))
+        );
+      });
+      
+      // Final wait for any remaining dynamic content
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // 스크린샷 직전에 페이지 맨 위로 스크롤 및 fixed 요소 처리
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+        
+        // position:fixed 요소들을 일시적으로 absolute로 변경 (스크린샷 버그 방지)
+        const fixedElements = document.querySelectorAll('*');
+        fixedElements.forEach(el => {
+          const style = window.getComputedStyle(el);
+          if (style.position === 'fixed') {
+            (el as HTMLElement).style.position = 'absolute';
+          }
+        });
+      });
+      
+      // 스크롤 후 잠시 대기
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Capture full HTML after rendering
       const fullHTML = await page.content();
       
-      // Take screenshot
-      const screenshotOptions: ScreenshotOptions = {
-        fullPage: config.fullPage !== false,
-        type: config.type || 'png',
-        quality: config.type === 'jpeg' || config.type === 'webp' ? (config.quality || 90) : undefined
-      };
-
-      const screenshotBuffer = await page.screenshot(screenshotOptions);
+      // fullPage 버그 우회: 페이지 전체 높이를 계산하여 뷰포트 높이 조정
+      let screenshotBuffer: Buffer;
+      
+      if (config.fullPage !== false) {
+        // 페이지 전체 높이 계산
+        const pageHeight = await page.evaluate(() => {
+          const body = document.body;
+          const html = document.documentElement;
+          return Math.max(
+            body.scrollHeight,
+            body.offsetHeight,
+            html.clientHeight,
+            html.scrollHeight,
+            html.offsetHeight
+          );
+        });
+        
+        // 현재 뷰포트 설정 가져오기
+        const currentViewport = page.viewport();
+        
+        // 뷰포트 높이를 페이지 전체 높이로 설정
+        await page.setViewport({
+          width: currentViewport?.width || viewport.width,
+          height: Math.min(Math.ceil(pageHeight), 30000), // 최대 30000px로 제한 (메모리 이슈 방지)
+          deviceScaleFactor: currentViewport?.deviceScaleFactor || viewport.deviceScaleFactor,
+          isMobile: currentViewport?.isMobile || viewport.isMobile
+        });
+        
+        // 뷰포트 조정 후 잠시 대기
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // fullPage: false로 스크린샷 캡처 (뷰포트가 이미 전체 높이)
+        const screenshotOptions: ScreenshotOptions = {
+          fullPage: false, // false로 설정하여 버그 우회
+          type: config.type || 'png',
+          quality: config.type === 'jpeg' || config.type === 'webp' ? (config.quality || 90) : undefined
+        };
+        
+        screenshotBuffer = await page.screenshot(screenshotOptions);
+        
+        // 원래 뷰포트로 복원 (선택사항)
+        await page.setViewport(viewport);
+      } else {
+        // fullPage가 아닌 경우 기존 방식
+        const screenshotOptions: ScreenshotOptions = {
+          fullPage: false,
+          type: config.type || 'png',
+          quality: config.type === 'jpeg' || config.type === 'webp' ? (config.quality || 90) : undefined
+        };
+        
+        screenshotBuffer = await page.screenshot(screenshotOptions);
+      }
       
       // Generate unique filename
       const hash = crypto.createHash('md5').update(url + Date.now()).digest('hex');
@@ -286,6 +424,41 @@ export class PuppeteerScreenshot {
           break;
       }
     }
+  }
+
+  private async autoScroll(page: Page): Promise<void> {
+    await page.evaluate(async () => {
+      await new Promise<void>((resolve) => {
+        let totalHeight = 0;
+        const distance = 100; // 한번에 스크롤할 거리
+        let lastScrollHeight = 0;
+        let noChangeCount = 0;
+        
+        const timer = setInterval(() => {
+          const scrollHeight = document.documentElement.scrollHeight;
+          
+          // 스크롤
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+
+          // 페이지 높이가 변경되지 않았는지 확인
+          if (scrollHeight === lastScrollHeight) {
+            noChangeCount++;
+          } else {
+            noChangeCount = 0;
+            lastScrollHeight = scrollHeight;
+          }
+
+          // 페이지 끝에 도달했거나 더 이상 로드할 컨텐츠가 없을 때
+          if (totalHeight >= scrollHeight - window.innerHeight || noChangeCount > 20) {
+            clearInterval(timer);
+            // 하단에서 대기 (맨 위로 올리지 않음)
+            // 지연 로딩 컨텐츠가 로드될 시간을 충분히 줌
+            setTimeout(resolve, 8000); // 8초 대기
+          }
+        }, 300); // 300ms마다 스크롤 (더 천천히)
+      });
+    });
   }
 
   async captureMultiple(urls: string[], config: ScreenshotConfig = {}): Promise<ScreenshotResult[]> {

@@ -30,7 +30,8 @@
       "Bash(for i in {1..30})",
       "Bash(for i in {1..60})",
       "Bash(env)",
-      "Bash(npx lighthouse:*)"
+      "Bash(npx lighthouse:*)",
+      "Bash(npm run:*)"
     ],
     "deny": [],
     "ask": [],
