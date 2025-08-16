@@ -247,12 +247,19 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
             
             <div className="flex items-center space-x-3">
               <button
+                onClick={() => window.open(`/print-result/${runId}`, '_blank')}
+                className="btn-secondary flex items-center space-x-2 py-2 px-4"
+              >
+                <Download className="w-4 h-4" />
+                <span>PDF 미리보기</span>
+              </button>
+              <button
                 onClick={handleDownloadPdf}
                 disabled={downloadingPdf}
                 className="btn-secondary flex items-center space-x-2 py-2 px-4"
               >
                 <Download className="w-4 h-4" />
-                <span>PDF</span>
+                <span>PDF 다운로드</span>
               </button>
               <button
                 onClick={handleDownloadZip}

@@ -157,9 +157,20 @@ export class LocalStorageService {
       await fs.writeFile(fullPath, data);
     } else {
       // Stream 처리
-      const chunks: Uint8Array[] = [];
+      const chunks: Buffer[] = [];
       for await (const chunk of data) {
-        chunks.push(chunk);
+        // Ensure chunk is a Buffer
+        if (Buffer.isBuffer(chunk)) {
+          chunks.push(chunk);
+        } else if (chunk instanceof Uint8Array) {
+          chunks.push(Buffer.from(chunk));
+        } else if (typeof chunk === 'number') {
+          // Single byte as number
+          chunks.push(Buffer.from([chunk]));
+        } else {
+          // String or other types
+          chunks.push(Buffer.from(String(chunk)));
+        }
       }
       await fs.writeFile(fullPath, Buffer.concat(chunks));
     }

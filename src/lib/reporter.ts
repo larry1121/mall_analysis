@@ -6,6 +6,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { tmpdir } from 'os';
 import { AuditResult, CheckResult } from '../types/index.js';
+import { createPuppeteerPDFGenerator } from './puppeteer-pdf.js';
 
 export interface ReportOptions {
   includeScreenshots?: boolean;
@@ -50,7 +51,17 @@ export class Reporter {
 
     // PDF 리포트
     if (options.format === 'pdf' || !options.format) {
-      report.pdf = await this.generatePDF(result);
+      try {
+        const pdfBuffer = await this.generatePDF(result);
+        if (pdfBuffer && pdfBuffer.length > 0) {
+          report.pdf = pdfBuffer;
+        } else {
+          console.warn('PDF generation returned empty buffer');
+        }
+      } catch (error) {
+        console.error('PDF generation failed in generateReport:', error);
+        // Continue without PDF
+      }
     }
 
     // HTML 리포트
@@ -69,9 +80,44 @@ export class Reporter {
   }
 
   /**
-   * PDF 리포트 생성
+   * PDF 리포트 생성 - Puppeteer 또는 PDFKit 사용
    */
   private async generatePDF(result: AuditResult): Promise<Buffer> {
+    // 환경변수로 PDF 생성 방식 결정
+    const usePuppeteerPDF = process.env.USE_PUPPETEER_PDF !== 'false';
+    
+    if (usePuppeteerPDF) {
+      try {
+        // Puppeteer를 사용한 새로운 PDF 생성 방식
+        console.log('Generating PDF with Puppeteer from data...');
+        const pdfGenerator = createPuppeteerPDFGenerator();
+        
+        // 서버 환경에서는 데이터를 HTML로 변환 후 PDF 생성
+        // 개발 환경에서 React UI가 실행 중이면 React UI 사용 가능
+        const isDevWithUI = process.env.NODE_ENV === 'development' && process.env.CLIENT_URL;
+        
+        if (isDevWithUI) {
+          console.log('Using React UI for PDF generation');
+          return await pdfGenerator.generatePDFFromReactUI(result);
+        } else {
+          console.log('Using HTML template for PDF generation');
+          return await pdfGenerator.generatePDFFromData(result);
+        }
+      } catch (error) {
+        console.error('Puppeteer PDF generation failed, falling back to PDFKit:', error);
+        // 실패 시 PDFKit으로 폴백
+        return this.generatePDFKitReport(result);
+      }
+    } else {
+      // 기존 PDFKit 방식 사용
+      return this.generatePDFKitReport(result);
+    }
+  }
+
+  /**
+   * 기존 PDFKit 기반 PDF 생성 (폴백용)
+   */
+  private async generatePDFKitReport(result: AuditResult): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const chunks: Buffer[] = [];
       const doc = new PDFDocument({
@@ -467,17 +513,46 @@ export class Reporter {
       const chunks: Buffer[] = [];
       const archive = archiver('zip', { zlib: { level: 9 } });
 
-      archive.on('data', (chunk) => chunks.push(chunk));
-      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      archive.on('data', (chunk: any) => {
+        // chunk가 Buffer가 아닐 수 있으므로 Buffer로 변환
+        if (Buffer.isBuffer(chunk)) {
+          chunks.push(chunk);
+        } else if (chunk instanceof Uint8Array) {
+          chunks.push(Buffer.from(chunk));
+        } else {
+          chunks.push(Buffer.from(String(chunk)));
+        }
+      });
+      archive.on('end', () => {
+        if (chunks.length > 0) {
+          resolve(Buffer.concat(chunks));
+        } else {
+          reject(new Error('No data in archive'));
+        }
+      });
       archive.on('error', reject);
 
       // JSON 데이터
       archive.append(JSON.stringify(result, null, 2), { name: 'report.json' });
 
-      // PDF 리포트
-      if (options.format === 'pdf' || !options.format) {
-        const pdf = await this.generatePDF(result);
-        archive.append(pdf, { name: 'report.pdf' });
+      // PDF 리포트 - 실패해도 ZIP 생성 계속
+      try {
+        if (options.format === 'pdf' || !options.format) {
+          const pdf = await this.generatePDF(result);
+          if (pdf && Buffer.isBuffer(pdf) && pdf.length > 0) {
+            archive.append(pdf, { name: 'report.pdf' });
+          } else {
+            console.warn('PDF generation returned invalid or empty buffer, creating placeholder');
+            // PDF 생성 실패 시 간단한 텍스트 파일로 대체
+            const placeholder = Buffer.from(`PDF generation failed for ${result.url}\n\nTotal Score: ${result.totalScore}\nStatus: ${result.status}`, 'utf-8');
+            archive.append(placeholder, { name: 'report_error.txt' });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to generate PDF for ZIP:', error);
+        // PDF 실패 시에도 에러 정보 포함
+        const errorInfo = Buffer.from(`PDF generation error: ${error}\n\nURL: ${result.url}`, 'utf-8');
+        archive.append(errorInfo, { name: 'pdf_error.txt' });
       }
 
       // HTML 리포트
