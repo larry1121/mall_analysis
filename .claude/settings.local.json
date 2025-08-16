@@ -31,7 +31,9 @@
       "Bash(for i in {1..60})",
       "Bash(env)",
       "Bash(npx lighthouse:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(NODE_ENV=development CLIENT_URL=http://localhost:5173 npm run worker)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": [],

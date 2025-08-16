@@ -258,7 +258,7 @@ export async function runAudit(
               width: elem.bbox[2],
               height: elem.bbox[3]
             } : undefined,
-            padding: 15
+            padding: 80  // 15px에서 80px로 증가 - 더 넓은 범위 캡처
           }));
           
           const captureResults = await puppeteerInstance.captureMultipleElements(

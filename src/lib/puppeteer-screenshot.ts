@@ -39,7 +39,7 @@ export interface ScreenshotResult {
 export interface ElementScreenshotConfig {
   selector?: string;
   bbox?: { x: number; y: number; width: number; height: number };
-  padding?: number; // Extra padding around element
+  padding?: number; // Extra padding around element (기본값: 50px)
 }
 
 export interface ElementScreenshotResult {
@@ -609,7 +609,7 @@ export class PuppeteerScreenshot {
         actualBbox = box;
 
         // Add padding if specified
-        const padding = elementConfig.padding || 10;
+        const padding = elementConfig.padding || 50;  // 기본 패딩을 10px에서 50px로 증가
         const clip = {
           x: Math.max(0, box.x - padding),
           y: Math.max(0, box.y - padding),
@@ -625,7 +625,7 @@ export class PuppeteerScreenshot {
 
       } else if (elementConfig.bbox) {
         // Use provided bbox
-        const padding = elementConfig.padding || 10;
+        const padding = elementConfig.padding || 50;  // 기본 패딩을 10px에서 50px로 증가
         const clip = {
           x: Math.max(0, elementConfig.bbox.x - padding),
           y: Math.max(0, elementConfig.bbox.y - padding),
@@ -767,7 +767,7 @@ export class PuppeteerScreenshot {
             }
 
             actualBbox = box;
-            const padding = elementConfig.padding || 10;
+            const padding = elementConfig.padding || 50;  // 기본 패딩을 10px에서 50px로 증가
             const clip = {
               x: Math.max(0, box.x - padding),
               y: Math.max(0, box.y - padding),
@@ -781,7 +781,7 @@ export class PuppeteerScreenshot {
             });
 
           } else if (elementConfig.bbox) {
-            const padding = elementConfig.padding || 10;
+            const padding = elementConfig.padding || 50;  // 기본 패딩을 10px에서 50px로 증가
             const clip = {
               x: Math.max(0, elementConfig.bbox.x - padding),
               y: Math.max(0, elementConfig.bbox.y - padding),
