@@ -37,7 +37,8 @@
       "Bash(sed:*)",
       "Bash(npm test)",
       "Bash(open test.pdf)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(for i in {1..20})"
     ],
     "deny": [],
     "ask": [],

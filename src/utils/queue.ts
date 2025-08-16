@@ -27,9 +27,14 @@ class InMemoryQueue extends EventEmitter {
     delayed: 0,
     paused: 0
   };
-  private _isPaused: boolean = false;
+  private isPaused: boolean = false; // 큐 일시정지 상태
 
   async add(name: string, data: AuditJobData, options?: any): Promise<any> {
+    // 일시정지 상태 확인
+    if (this.isPaused) {
+      throw new Error('Queue is paused');
+    }
+    
     const job = {
       id: data.runId,
       name,
@@ -77,9 +82,9 @@ class InMemoryQueue extends EventEmitter {
   async pause(): Promise<void> {
     this.isPaused = true;
   }
-
+  
   async resume(): Promise<void> {
-    this._isPaused = false;
+    this.isPaused = false;
   }
 
   async clean(_grace: number, limit: number, status: 'completed' | 'failed'): Promise<string[]> {

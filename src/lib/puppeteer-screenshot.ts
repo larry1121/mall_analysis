@@ -28,6 +28,7 @@ export interface ScreenshotResult {
   screenshot?: string; // base64 encoded image
   localPath?: string; // local file path
   error?: string;
+  html?: string; // rendered HTML content
   metadata?: {
     url: string;
     timestamp: number;
@@ -72,7 +73,7 @@ export class PuppeteerScreenshot {
     }
     
     this.browser = await puppeteer.launch({
-      headless: 'new', // Use new headless mode
+      headless: true, // Use new headless mode
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -265,7 +266,7 @@ export class PuppeteerScreenshot {
         return Promise.all(
           Array.from(document.images)
             .filter(img => !img.complete)
-            .map(img => new Promise((resolve, reject) => {
+            .map(img => new Promise((resolve) => {
               img.addEventListener('load', resolve);
               img.addEventListener('error', resolve);
               setTimeout(resolve, 10000); // 10초 timeout으로 증가
@@ -371,8 +372,7 @@ export class PuppeteerScreenshot {
           url,
           timestamp: Date.now(),
           viewport: { width: viewport.width, height: viewport.height },
-          fullPage: config.fullPage !== false,
-          htmlLength: fullHTML.length
+          fullPage: config.fullPage !== false
         }
       };
     } catch (error) {

@@ -114,7 +114,7 @@ describe('LighthouseRunner', () => {
 
   describe('extractMetrics', () => {
     it('should extract metrics from Lighthouse data', () => {
-      const _mockData = {
+      const mockData = {
         audits: {
           'largest-contentful-paint': { numericValue: 2500 },
           'cumulative-layout-shift': { numericValue: 0.1 },
@@ -138,6 +138,7 @@ describe('LighthouseRunner', () => {
       // Private method test through reflection would be here
       // Since we can't directly test private methods in TypeScript,
       // we would test this through the public `run` method in integration tests
+      void mockData; // Marking as intentionally unused
     });
   });
 

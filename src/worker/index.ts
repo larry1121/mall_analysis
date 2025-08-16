@@ -11,7 +11,7 @@ export async function startWorker() {
   console.log('🚀 Starting audit worker...');
 
   const queue = await getQueue();
-  const _db = await getDatabase();
+  await getDatabase(); // Initialize database connection
 
   // BullMQ Worker 또는 InMemory 리스너
   if ('getQueue' in queue && typeof queue.getQueue === 'function') {

@@ -14,7 +14,7 @@ export class PuppeteerPDFGenerator {
     }
     
     this.browser = await puppeteer.launch({
-      headless: 'new' as const,
+      headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -589,20 +589,23 @@ export class PuppeteerPDFGenerator {
             
             <div style="margin-top: 30px;">
                 ${['home', 'category', 'product', 'cart', 'checkout'].map(step => {
-                  const stepData = result.purchaseFlow && result.purchaseFlow[step as keyof typeof result.purchaseFlow];
-                  if (!stepData) return '';
+                  const flowData = result.purchaseFlow;
+                  if (!flowData || typeof flowData === 'boolean') return '';
+                  
+                  const stepData = flowData[step as keyof typeof flowData];
+                  if (!stepData || typeof stepData === 'boolean') return '';
                   
                   return `
                   <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px;">
                       <h3 style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">
                           ${step.charAt(0).toUpperCase() + step.slice(1)}
                       </h3>
-                      <div style="font-size: 14px; font-weight: 600; color: ${stepData.exists ? '#10b981' : '#ef4444'}">
-                          ${stepData.exists ? '✓ 확인됨' : '✗ 미확인'}
+                      <div style="font-size: 14px; font-weight: 600; color: ${(stepData as any).exists ? '#10b981' : '#ef4444'}">
+                          ${(stepData as any).exists ? '✓ 확인됨' : '✗ 미확인'}
                       </div>
-                      ${stepData.url ? `
+                      ${(stepData as any).url ? `
                       <div style="font-size: 12px; color: #6b7280; margin-top: 5px; word-break: break-all;">
-                          ${stepData.url}
+                          ${(stepData as any).url}
                       </div>
                       ` : ''}
                   </div>
@@ -626,9 +629,9 @@ export class PuppeteerPDFGenerator {
                 </div>
             </div>
             
-            ${result.evidenceScreenshots ? `
+            ${(result as any).evidenceScreenshots ? `
                 <h3 style="font-size: 20px; margin-top: 40px; margin-bottom: 20px;">주요 요소 스크린샷</h3>
-                ${this.generateEvidenceScreenshots(result.evidenceScreenshots)}
+                ${this.generateEvidenceScreenshots((result as any).evidenceScreenshots)}
             ` : ''}
         </div>
         ` : ''}

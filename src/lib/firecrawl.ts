@@ -88,14 +88,14 @@ export class FirecrawlClient {
   /**
    * 플랫폼별 액션 시퀀스 구성
    */
-  private buildActions(platform?: 'cafe24' | 'imweb' | 'unknown'): FirecrawlAction[] {
+  private buildActions(_platform?: 'cafe24' | 'imweb' | 'unknown'): FirecrawlAction[] {
     // 스크린샷 수집 (최소한의 액션만 - 타임아웃 방지)
     const baseActions: FirecrawlAction[] = [
       { type: 'screenshot' } // 스크린샷만 - waitFor에서 충분히 대기
     ];
 
-    // 플랫폼별 셀렉터 우선순위
-    const platformSelectors = {
+    // 플랫폼별 셀렉터 우선순위 (향후 사용 예정)
+    /* const _platformSelectors = {
       cafe24: {
         product: "a[href*='/product/'], .product-link, .item-link",
         cart: "a[href*='/order/basket.html'], a[href*='/cart'], a:has-text('장바구니')",
@@ -111,7 +111,7 @@ export class FirecrawlClient {
         cart: "a[href*='/cart'], a:has-text('장바구니'), .cart-btn",
         checkout: "a[href*='checkout'], a:has-text('결제'), .checkout-btn"
       }
-    };
+    }; */
 
     // const selectors = platformSelectors[platform || 'unknown'];
 
