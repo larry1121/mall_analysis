@@ -192,9 +192,28 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
     return 'score-critical'
   }
 
-  // 로딩 중 또는 데이터가 없는 경우 (새로운 분석 시작)
-  if (isLoading || !data || error) {
+  // 로딩 중
+  if (isLoading && !error) {
     return <LoadingScreen progress={0} status="pending" />
+  }
+
+  // 에러가 발생했거나 데이터를 찾을 수 없는 경우
+  if (error || !data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">분석 결과를 찾을 수 없습니다</h2>
+          <p className="text-gray-600 mb-6">
+            요청하신 분석 결과가 존재하지 않거나 만료되었습니다.<br />
+            새로운 분석을 시작해주세요.
+          </p>
+          <button onClick={onBack} className="btn-primary">
+            홈으로 돌아가기
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // 처리 중 (pending 또는 processing)
