@@ -106,18 +106,32 @@ export class LighthouseRunner {
       '--max-wait-for-load=60000'  // 60초까지 페이지 로드 대기
     ];
 
-    // 모바일 에뮬레이션
-    if (options.device === 'mobile' || !options.device) {
+    // 디바이스 에뮬레이션
+    if (options.device === 'desktop') {
+      // 데스크톱 모드 (명시적으로 desktop 지정 시)
+      args.push('--screenEmulation.disabled=true');
+      args.push('--formFactor=desktop');
+      args.push('--chrome-flags="--headless --no-sandbox --disable-gpu --disable-dev-shm-usage --window-size=1920,1080"');
+    } else {
+      // 기본값: 모바일 (현재 대부분의 트래픽이 모바일)
       args.push('--screenEmulation.mobile=true');
       args.push('--screenEmulation.width=375');
       args.push('--screenEmulation.height=812');
+      args.push('--emulatedUserAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"');
     }
 
-    // 네트워크 스로틀링
-    if (options.throttling !== false) {
+    // 보편적인 사용자 환경: 스로틀링 없이 실제 네트워크/CPU 성능 사용
+    // 대부분의 사용자는 4G/5G 또는 WiFi를 사용하며 최신 디바이스를 보유
+    args.push('--throttling-method=provided'); // 스로틀링 없음
+    args.push('--throttling.cpuSlowdownMultiplier=1'); // CPU 슬로우다운 없음
+    
+    // 옵션으로 스로틀링을 명시적으로 켠 경우에만 적용
+    if (options.throttling === true) {
+      // 명시적으로 스로틀링을 원하는 경우 (저사양 테스트용)
       args.push('--throttling-method=simulate');
-    } else {
-      args.push('--throttling-method=devtools');
+      args.push('--throttling.cpuSlowdownMultiplier=2');
+      args.push('--throttling.rttMs=40');
+      args.push('--throttling.throughputKbps=10240');
     }
 
     return args;
