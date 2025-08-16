@@ -1,7 +1,7 @@
 import Vibrant from 'node-vibrant';
 import sharp from 'sharp';
 import * as cheerio from 'cheerio';
-import { JSDOM } from 'jsdom';
+// import { JSDOM } from 'jsdom';
 
 export interface ColorPalette {
   primary: string;
@@ -402,6 +402,7 @@ export function detectHorizontalOverflow(html: string, viewportWidth: number = 3
       hasOverflow = true;
       return false; // break
     }
+    return true; // continue
   });
 
   return hasOverflow;

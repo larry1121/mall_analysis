@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Search, Zap, Shield, BarChart3, Sparkles, Clock, ExternalLink } from 'lucide-react'
 import toast from 'react-hot-toast'
-import axios from 'axios'
+import apiClient from '../config/api'
 
 interface HomePageProps {
   onStartAudit: (runId: string) => void
@@ -29,7 +29,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
 
   const fetchRecentRuns = async () => {
     try {
-      const response = await axios.get('/api/audit/list?limit=5')
+      const response = await apiClient.get('/audit/list?limit=5')
       setRecentRuns(response.data.runs || [])
     } catch (error) {
       console.error('Failed to fetch recent runs:', error)
@@ -60,7 +60,7 @@ export default function HomePage({ onStartAudit }: HomePageProps) {
     setIsLoading(true)
     
     try {
-      const response = await axios.post('/api/audit', {
+      const response = await apiClient.post('/audit', {
         url: url.startsWith('http') ? url : `https://${url}`
       })
       

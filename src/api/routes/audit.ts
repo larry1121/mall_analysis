@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getQueue } from '../../utils/queue.js';
 import { getDatabase } from '../../utils/database.js';
 import { getStorage } from '../../utils/storage.js';
-import { AuditRequest, AuditRun, AuditResult } from '../../types/index.js';
+import { AuditRequest, AuditRun } from '../../types/index.js';
 
 // 요청 스키마 (JSON Schema)
 const AuditRequestSchema = {
@@ -123,7 +123,7 @@ export async function auditRoutes(fastify: FastifyInstance) {
       if (error instanceof Error && error.message.includes('validation')) {
         return reply.status(400).send({
           error: true,
-          message: 'Invalid request: ' + error.errors.map(e => e.message).join(', ')
+          message: 'Invalid request: ' + error.message
         });
       }
 
@@ -327,6 +327,62 @@ export async function auditRoutes(fastify: FastifyInstance) {
       clearInterval(interval);
       reply.raw.end();
     });
+  });
+
+  /**
+   * GET /api/audit/:runId/download/pdf - PDF 리포트 다운로드
+   */
+  fastify.get<{
+    Params: { runId: string }
+  }>('/:runId/download/pdf', async (request: FastifyRequest<{ Params: { runId: string } }>, reply: FastifyReply) => {
+    const { runId } = request.params;
+
+    try {
+      // DB에서 결과 조회
+      const fullResult = await db.getFullResult(runId);
+      
+      if (!fullResult) {
+        return reply.status(404).send({
+          error: true,
+          message: 'Audit result not found'
+        });
+      }
+
+      if (fullResult.status !== 'completed') {
+        return reply.status(400).send({
+          error: true,
+          message: 'Audit is not completed yet'
+        });
+      }
+
+      // PDF 생성
+      const { Reporter } = await import('../../lib/reporter.js');
+      const reporter = new Reporter();
+      const { pdf } = await reporter.generateReport(fullResult, {
+        format: 'pdf',
+        includeScreenshots: true
+      });
+
+      if (!pdf) {
+        return reply.status(500).send({
+          error: true,
+          message: 'Failed to generate PDF'
+        });
+      }
+
+      // PDF 응답
+      reply
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `attachment; filename="mall-analysis-${runId}.pdf"`)
+        .send(pdf);
+
+    } catch (error) {
+      fastify.log.error({ error, runId }, 'Failed to generate PDF');
+      return reply.status(500).send({
+        error: true,
+        message: 'Failed to generate PDF report'
+      });
+    }
   });
 
   /**

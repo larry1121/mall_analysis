@@ -3,13 +3,6 @@ import { z } from 'zod';
 import { LLMGraderInput, LLMGraderOutput } from '../types/index.js';
 
 // Zod 스키마 정의 - LLM 출력 검증용
-// const BBoxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
-
-// const EvidenceItemSchema = z.object({
-//   text: z.string().optional(),
-//   bbox: BBoxSchema.optional(),
-//   selector: z.string().optional()
-// });
 
 const CheckResultSchema = z.object({
   id: z.string(), // Required for CheckResult interface

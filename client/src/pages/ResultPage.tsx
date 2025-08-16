@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Download, RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
 import { useQuery } from 'react-query'
-import axios from 'axios'
+import apiClient from '../config/api'
 import ScoreCard from '../components/ScoreCard'
 import ScoreChart from '../components/ScoreChart'
 import LoadingScreen from '../components/LoadingScreen'
@@ -51,7 +51,7 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
     let interval: NodeJS.Timeout | null = null
     
     // 먼저 초기 데이터 로드
-    axios.get(`/api/audit/${runId}`)
+    apiClient.get(`/audit/${runId}`)
       .then(response => {
         if (response.data && Object.keys(response.data).length > 0) {
           setData(response.data)
@@ -81,7 +81,7 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
               
               // 폴백: 일반 API로 주기적 체크
               interval = setInterval(() => {
-                axios.get(`/api/audit/${runId}`)
+                apiClient.get(`/audit/${runId}`)
                   .then(res => {
                     if (res.data) {
                       setData(res.data)
@@ -120,7 +120,7 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
 
   const refetch = () => {
     setIsLoading(true)
-    axios.get(`/api/audit/${runId}`)
+    apiClient.get(`/audit/${runId}`)
       .then(response => {
         setData(response.data)
         setIsLoading(false)
@@ -134,7 +134,7 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true)
     try {
-      const response = await axios.get(`/api/audit/${runId}/report.pdf`, {
+      const response = await apiClient.get(`/audit/${runId}/report.pdf`, {
         responseType: 'blob'
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -154,7 +154,7 @@ export default function ResultPage({ runId, onBack }: ResultPageProps) {
   const handleDownloadZip = async () => {
     setDownloadingZip(true)
     try {
-      const response = await axios.get(`/api/audit/${runId}/artifacts.zip`, {
+      const response = await apiClient.get(`/audit/${runId}/artifacts.zip`, {
         responseType: 'blob'
       })
       const url = window.URL.createObjectURL(new Blob([response.data]))

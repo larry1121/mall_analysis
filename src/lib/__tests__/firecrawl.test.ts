@@ -86,7 +86,7 @@ describe('FirecrawlClient', () => {
     it('should use platform-specific selectors', async () => {
       let capturedBody: any;
       
-      global.fetch = vi.fn().mockImplementation((url, options) => {
+      global.fetch = vi.fn().mockImplementation((_url, options) => {
         capturedBody = JSON.parse(options.body);
         return Promise.resolve({
           ok: true,

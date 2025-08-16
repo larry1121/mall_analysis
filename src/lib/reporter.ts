@@ -89,13 +89,13 @@ export class Reporter {
     if (usePuppeteerPDF) {
       try {
         // Puppeteer를 사용한 새로운 PDF 생성 방식
-        console.log('Generating PDF with Puppeteer from data...');
+        console.log('Generating PDF with Puppeteer...');
         const pdfGenerator = createPuppeteerPDFGenerator();
         
-        // HTML 템플릿 방식을 기본으로 사용
-        // React UI 방식은 현재 데이터 로딩 이슈로 비활성화
+        // HTML 템플릿을 기본으로 사용
         console.log('Generating PDF with HTML template (default method)');
         return await pdfGenerator.generatePDFFromData(result);
+        
       } catch (error) {
         console.error('Puppeteer PDF generation failed, falling back to PDFKit:', error);
         // 실패 시 PDFKit으로 폴백

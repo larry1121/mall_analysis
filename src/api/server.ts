@@ -61,7 +61,7 @@ export async function createServer() {
   });
 
   // 에러 핸들러
-  fastify.setErrorHandler((error, request, reply) => {
+  fastify.setErrorHandler((error, _request, reply) => {
     fastify.log.error(error);
     
     const statusCode = error.statusCode || 500;
@@ -78,7 +78,7 @@ export async function createServer() {
   });
 
   // 404 핸들러
-  fastify.setNotFoundHandler((request, reply) => {
+  fastify.setNotFoundHandler((_request, reply) => {
     reply.status(404).send({
       error: true,
       message: 'Route not found',

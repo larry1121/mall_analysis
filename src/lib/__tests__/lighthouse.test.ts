@@ -1,12 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { LighthouseRunner } from '../lighthouse.js';
 import { LighthouseMetrics } from '../../types/index.js';
 
 describe('LighthouseRunner', () => {
-  let runner: LighthouseRunner;
-
   beforeEach(() => {
-    runner = new LighthouseRunner(5000);
+    // Setup any needed state
   });
 
   describe('calculateSpeedScore', () => {
@@ -116,7 +114,7 @@ describe('LighthouseRunner', () => {
 
   describe('extractMetrics', () => {
     it('should extract metrics from Lighthouse data', () => {
-      const mockData = {
+      const _mockData = {
         audits: {
           'largest-contentful-paint': { numericValue: 2500 },
           'cumulative-layout-shift': { numericValue: 0.1 },

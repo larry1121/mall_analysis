@@ -14,7 +14,7 @@ export class PuppeteerPDFGenerator {
     }
     
     this.browser = await puppeteer.launch({
-      headless: 'new',
+      headless: 'new' as const,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -92,9 +92,9 @@ export class PuppeteerPDFGenerator {
       // 모든 이미지가 로드될 때까지 대기
       await page.evaluate(() => {
         return Promise.all(
-          Array.from(document.images)
-            .filter(img => !img.complete)
-            .map(img => new Promise((resolve) => {
+          Array.from((globalThis as any).document.images)
+            .filter((img: any) => !img.complete)
+            .map((img: any) => new Promise((resolve) => {
               img.addEventListener('load', resolve);
               img.addEventListener('error', resolve);
               setTimeout(resolve, 5000);
@@ -162,7 +162,7 @@ export class PuppeteerPDFGenerator {
 
       await page.close();
       
-      return pdfBuffer;
+      return Buffer.from(pdfBuffer);
     } catch (error) {
       console.error('PDF generation failed:', error);
       throw error;
@@ -253,7 +253,7 @@ export class PuppeteerPDFGenerator {
 
       await page.close();
       
-      return pdfBuffer;
+      return Buffer.from(pdfBuffer);
     } catch (error) {
       console.error('PDF generation from HTML failed:', error);
       throw error;
@@ -271,7 +271,7 @@ export class PuppeteerPDFGenerator {
   }
 
   /**
-   * 데이터를 HTML로 변환
+   * 데이터를 HTML로 변환 (웹 UI와 동일한 스타일 적용)
    */
   private generateHTMLFromData(result: AuditResult): string {
     const totalScore = result.totalScore || 0;
@@ -289,10 +289,10 @@ export class PuppeteerPDFGenerator {
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-          font-family: 'Noto Sans KR', -apple-system, sans-serif; 
+          font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
           line-height: 1.6; 
-          color: #333; 
-          background: white;
+          color: #1f2937; 
+          background: #f9fafb;
         }
         
         .print-page { width: 100%; }
@@ -310,6 +310,10 @@ export class PuppeteerPDFGenerator {
           align-items: center;
           justify-content: center;
           text-align: center;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          padding: 60px;
         }
         
         .cover-title {
@@ -393,10 +397,27 @@ export class PuppeteerPDFGenerator {
         }
         
         .score-item {
+          background: white;
           border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          padding: 15px;
-          margin-bottom: 15px;
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 20px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          transition: all 0.2s;
+        }
+        
+        .score-bar {
+          height: 8px;
+          background: #f3f4f6;
+          border-radius: 4px;
+          overflow: hidden;
+          margin: 12px 0;
+        }
+        
+        .score-bar-fill {
+          height: 100%;
+          border-radius: 4px;
+          transition: width 0.3s;
         }
         
         .score-item-header {
@@ -516,12 +537,45 @@ export class PuppeteerPDFGenerator {
                 <div class="score-item-header">
                     <span class="score-item-name">${this.getCategoryName(check.id)}</span>
                     <span class="score-item-value" style="color: ${this.getScoreColor(check.score * 10)}">
-                        ${check.score}점
+                        ${check.score}/10
                     </span>
                 </div>
+                
+                <div class="score-bar">
+                    <div class="score-bar-fill" style="width: ${check.score * 10}%; background: ${this.getScoreColor(check.score * 10)}"></div>
+                </div>
+                
+                ${check.metrics && Object.keys(check.metrics).length > 0 ? `
+                <div style="margin: 10px 0; padding: 10px; background: #f9fafb; border-radius: 6px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 5px;">측정값</div>
+                    ${Object.entries(check.metrics).map(([key, value]) => `
+                        <div style="font-size: 11px; color: #4b5563;">• ${key}: ${value}</div>
+                    `).join('')}
+                </div>
+                ` : ''}
+                
+                ${check.evidence && check.evidence.screenshots && check.evidence.screenshots.length > 0 ? `
+                <div style="margin: 10px 0;">
+                    <div style="font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 5px;">근거 스크린샷</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px;">
+                        ${check.evidence.screenshots.slice(0, 3).map((screenshot: any) => `
+                            ${screenshot.screenshot ? `
+                            <div style="border: 1px solid #e5e7eb; border-radius: 4px; overflow: hidden;">
+                                <img src="${screenshot.screenshot}" style="width: 100%; height: 80px; object-fit: cover;" alt="Evidence">
+                                ${screenshot.text ? `<div style="font-size: 10px; padding: 2px 4px; background: #f9fafb; color: #6b7280;">${screenshot.text}</div>` : ''}
+                            </div>
+                            ` : ''}
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
                 ${check.insights && check.insights.length > 0 ? `
-                <div class="score-item-insights">
-                    ${check.insights.slice(0, 2).map(insight => `<p>• ${insight}</p>`).join('')}
+                <div class="score-item-insights" style="margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 6px;">
+                    <div style="font-size: 12px; font-weight: 600; color: #92400e; margin-bottom: 5px;">💡 개선점</div>
+                    ${check.insights.slice(0, 3).map(insight => `
+                        <div style="font-size: 11px; color: #78350f; margin: 3px 0;">• ${insight}</div>
+                    `).join('')}
                 </div>
                 ` : ''}
             </div>
@@ -535,7 +589,7 @@ export class PuppeteerPDFGenerator {
             
             <div style="margin-top: 30px;">
                 ${['home', 'category', 'product', 'cart', 'checkout'].map(step => {
-                  const stepData = result.purchaseFlow[step];
+                  const stepData = result.purchaseFlow && result.purchaseFlow[step as keyof typeof result.purchaseFlow];
                   if (!stepData) return '';
                   
                   return `

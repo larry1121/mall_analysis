@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { VisionLLMGrader } from '../vision-llm.js';
 import { LLMGraderInput } from '../../types/index.js';
 

@@ -125,7 +125,7 @@ export class StorageService {
     return response.Contents.map(obj => obj.Key!);
   }
 
-  async generateSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+  async generateSignedUrl(key: string, _expiresIn: number = 3600): Promise<string> {
     // AWS SDK v3에서는 @aws-sdk/s3-request-presigner 패키지 필요
     // 여기서는 간단히 public URL 반환
     const endpoint = process.env.S3_ENDPOINT || 'https://s3.amazonaws.com';
@@ -149,7 +149,7 @@ export class LocalStorageService {
     await fs.mkdir(this.basePath, { recursive: true });
   }
 
-  async upload(key: string, data: Buffer | Readable, contentType?: string): Promise<string> {
+  async upload(key: string, data: Buffer | Readable, _contentType?: string): Promise<string> {
     const fullPath = join(this.basePath, key);
     await fs.mkdir(dirname(fullPath), { recursive: true });
 
@@ -211,7 +211,7 @@ export class LocalStorageService {
     }
   }
 
-  async generateSignedUrl(key: string, expiresIn?: number): Promise<string> {
+  async generateSignedUrl(key: string, _expiresIn?: number): Promise<string> {
     const fullPath = join(this.basePath, key);
     return `file://${fullPath}`;
   }

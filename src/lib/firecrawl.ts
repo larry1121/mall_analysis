@@ -48,7 +48,7 @@ export class FirecrawlClient {
         throw new Error(`Firecrawl API error: ${response.status} - ${error}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       
       // Firecrawl v1 API 응답 로깅
       console.log('Firecrawl raw response has data?:', !!data.data);
@@ -113,10 +113,10 @@ export class FirecrawlClient {
       }
     };
 
-    const selectors = platformSelectors[platform || 'unknown'];
+    // const selectors = platformSelectors[platform || 'unknown'];
 
     // 구매 플로우 액션 추가 (간소화 - 너무 복잡하면 실패)
-    const flowActions: FirecrawlAction[] = [];
+    // const flowActions: FirecrawlAction[] = [];
     
     // 액션을 너무 많이 추가하면 타임아웃 발생
     // 기본 스크린샷만으로도 충분한 정보 수집 가능

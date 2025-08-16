@@ -334,7 +334,7 @@ export class PuppeteerScreenshot {
           quality: config.type === 'jpeg' || config.type === 'webp' ? (config.quality || 90) : undefined
         };
         
-        screenshotBuffer = await page.screenshot(screenshotOptions);
+        screenshotBuffer = Buffer.from(await page.screenshot(screenshotOptions));
         
         // 원래 뷰포트로 복원 (선택사항)
         await page.setViewport(viewport);
@@ -346,7 +346,7 @@ export class PuppeteerScreenshot {
           quality: config.type === 'jpeg' || config.type === 'webp' ? (config.quality || 90) : undefined
         };
         
-        screenshotBuffer = await page.screenshot(screenshotOptions);
+        screenshotBuffer = Buffer.from(await page.screenshot(screenshotOptions));
       }
       
       // Generate unique filename
@@ -618,10 +618,10 @@ export class PuppeteerScreenshot {
         };
 
         // Take screenshot with clip
-        screenshotBuffer = await page.screenshot({
+        screenshotBuffer = Buffer.from(await page.screenshot({
           clip,
           type: pageConfig.type || 'png'
-        });
+        }));
 
       } else if (elementConfig.bbox) {
         // Use provided bbox
@@ -635,10 +635,10 @@ export class PuppeteerScreenshot {
 
         actualBbox = elementConfig.bbox;
 
-        screenshotBuffer = await page.screenshot({
+        screenshotBuffer = Buffer.from(await page.screenshot({
           clip,
           type: pageConfig.type || 'png'
-        });
+        }));
       } else {
         throw new Error('Either selector or bbox must be provided');
       }
@@ -775,10 +775,10 @@ export class PuppeteerScreenshot {
               height: box.height + (padding * 2)
             };
 
-            screenshotBuffer = await page.screenshot({
+            screenshotBuffer = Buffer.from(await page.screenshot({
               clip,
               type: pageConfig.type || 'png'
-            });
+            }));
 
           } else if (elementConfig.bbox) {
             const padding = elementConfig.padding || 50;  // 기본 패딩을 10px에서 50px로 증가
@@ -790,10 +790,10 @@ export class PuppeteerScreenshot {
             };
 
             actualBbox = elementConfig.bbox;
-            screenshotBuffer = await page.screenshot({
+            screenshotBuffer = Buffer.from(await page.screenshot({
               clip,
               type: pageConfig.type || 'png'
-            });
+            }));
           } else {
             results.push({
               success: false,

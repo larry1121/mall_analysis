@@ -2,7 +2,6 @@ import { AuditResult, LLMGraderInput } from '../types/index.js';
 import { createFirecrawlClient, FirecrawlClient } from '../lib/firecrawl.js';
 import { createLighthouseRunner } from '../lib/lighthouse.js';
 import { createVisionLLMGrader } from '../lib/vision-llm.js';
-// import { Scorer } from '../lib/scorer.js';
 import { createScorerV2 } from '../lib/scorer-v2.js';
 import { Reporter } from '../lib/reporter.js';
 import { getStorage } from '../utils/storage.js';
@@ -245,6 +244,7 @@ export async function runAudit(
       }
       
       // 수집된 요소들 캡처
+      console.log('Total elements to capture:', elementsToCapture.length);
       if (elementsToCapture.length > 0) {
         try {
           console.log(`Capturing ${elementsToCapture.length} evidence screenshots...`);
@@ -260,6 +260,7 @@ export async function runAudit(
             padding: 80  // 15px에서 80px로 증가 - 더 넓은 범위 캡처
           }));
           
+          console.log('About to call captureMultipleElements with configs:', captureConfigs.length);
           const captureResults = await puppeteerInstance.captureMultipleElements(
             url,
             captureConfigs,
@@ -274,7 +275,10 @@ export async function runAudit(
             }
           );
           
-          console.log(`Capture results: ${captureResults.length} screenshots, ${captureResults.filter(r => r.success).length} successful`);
+          console.log(`Capture results: ${captureResults ? captureResults.length : 0} screenshots, ${captureResults ? captureResults.filter(r => r.success).length : 0} successful`);
+          if (!captureResults || captureResults.length === 0) {
+            console.error('captureMultipleElements returned no results');
+          }
           
           // 결과를 evidence에 매핑
           captureResults.forEach((result, idx) => {
@@ -311,6 +315,7 @@ export async function runAudit(
           console.log('evidenceScreenshots keys:', Object.keys(evidenceScreenshots));
           console.log('Total screenshot items:', Object.values(evidenceScreenshots).reduce((sum: number, cat: any) => 
             sum + (cat.items ? cat.items.length : 0), 0));
+          console.log('Sample evidenceScreenshots:', JSON.stringify(Object.keys(evidenceScreenshots).slice(0, 2).reduce((obj, key) => ({...obj, [key]: evidenceScreenshots[key]}), {}), null, 2));
         } catch (error) {
           console.error('Failed to capture evidence screenshots:', error);
         } finally {
@@ -427,7 +432,7 @@ export async function runAudit(
         steps: llmOutput.scores.purchaseFlow.steps
       } : undefined,
       screenshots: {
-        main: firecrawlData?.screenshot || undefined,
+        main: screenshotData?.screenshot || firecrawlData?.screenshot || undefined,
         actions: firecrawlData?.actions?.screenshots || []
       }
     };

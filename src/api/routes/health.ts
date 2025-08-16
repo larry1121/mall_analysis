@@ -59,7 +59,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
         503: HealthResponseSchema
       }
     }
-  }, async (request, reply) => {
+  }, async (_request, reply) => {
     const startTime = Date.now();
     const checks: any = {
       database: { status: 'error' },
@@ -124,7 +124,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
 
     // 메모리 체크
     const memoryUsage = process.memoryUsage();
-    const totalMemory = process.memoryUsage.rss ? memoryUsage.rss : 0;
+    const totalMemory = memoryUsage.rss;
     const usedMemory = memoryUsage.heapUsed;
     const memoryPercentage = totalMemory > 0 ? (usedMemory / totalMemory) * 100 : 0;
 
@@ -164,7 +164,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/health/live - Kubernetes liveness probe
    */
-  fastify.get('/live', async (request, reply) => {
+  fastify.get('/live', async (_request, reply) => {
     // 프로세스가 살아있으면 OK
     return reply.send({ status: 'ok' });
   });
@@ -172,7 +172,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/health/ready - Kubernetes readiness probe
    */
-  fastify.get('/ready', async (request, reply) => {
+  fastify.get('/ready', async (_request, reply) => {
     try {
       // 주요 서비스들이 준비되었는지 확인
       const db = await getDatabase();
@@ -202,7 +202,7 @@ export async function healthRoutes(fastify: FastifyInstance) {
   /**
    * GET /api/health/metrics - Prometheus metrics
    */
-  fastify.get('/metrics', async (request, reply) => {
+  fastify.get('/metrics', async (_request, reply) => {
     try {
       const queue = await getQueue();
       const counts = await queue.getJobCounts();

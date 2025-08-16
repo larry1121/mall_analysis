@@ -20,7 +20,7 @@ export interface LighthouseResult {
 }
 
 export class LighthouseRunner {
-  private timeout: number;
+  protected timeout: number;
 
   constructor(timeout: number = 600000) { // Increase default timeout to 600s (10 minutes)
     this.timeout = timeout;
@@ -140,7 +140,7 @@ export class LighthouseRunner {
   /**
    * Lighthouse CLI 실행
    */
-  private executeLighthouse(args: string[]): Promise<number> {
+  protected executeLighthouse(args: string[]): Promise<number> {
     return new Promise((resolve, reject) => {
       const lighthouse = spawn('npx', ['lighthouse', ...args], {
         shell: true,
@@ -359,7 +359,7 @@ export class DockerLighthouseRunner extends LighthouseRunner {
   /**
    * Docker 컨테이너에서 Lighthouse 실행
    */
-  private executeLighthouse(args: string[]): Promise<number> {
+  protected executeLighthouse(args: string[]): Promise<number> {
     return new Promise((resolve, reject) => {
       const dockerArgs = [
         'run',

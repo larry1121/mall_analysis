@@ -33,7 +33,11 @@
       "Bash(npx lighthouse:*)",
       "Bash(npm run:*)",
       "Bash(NODE_ENV=development CLIENT_URL=http://localhost:5173 npm run worker)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(sed:*)",
+      "Bash(npm test)",
+      "Bash(open test.pdf)",
+      "Bash(open:*)"
     ],
     "deny": [],
     "ask": [],

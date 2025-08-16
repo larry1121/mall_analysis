@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import axios from 'axios'
+import apiClient from '../config/api'
 import { motion } from 'framer-motion'
 import { CheckCircle, XCircle } from 'lucide-react'
 import ScoreCard from '../components/ScoreCard'
@@ -36,7 +36,7 @@ export default function PrintResultPage() {
 
   useEffect(() => {
     if (runId) {
-      axios.get(`/api/audit/${runId}`)
+      apiClient.get(`/audit/${runId}`)
         .then(response => {
           setData(response.data)
           setLoading(false)

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { Worker, Job } from 'bullmq';
 import { AuditJobData, getQueue } from '../utils/queue.js';
 import { getDatabase } from '../utils/database.js';
-import { getStorage } from '../utils/storage.js';
+// import { getStorage } from '../utils/storage.js';
 import { runAudit } from './job-runner.js';
 
 let worker: Worker<AuditJobData> | null = null;
@@ -11,10 +11,10 @@ export async function startWorker() {
   console.log('🚀 Starting audit worker...');
 
   const queue = await getQueue();
-  const db = await getDatabase();
+  const _db = await getDatabase();
 
   // BullMQ Worker 또는 InMemory 리스너
-  if ('getQueue' in queue && queue.getQueue) {
+  if ('getQueue' in queue && typeof queue.getQueue === 'function') {
     // BullMQ Worker
     const connection = (queue as any).connection;
     

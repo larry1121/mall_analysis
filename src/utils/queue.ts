@@ -1,4 +1,4 @@
-import { Queue, Worker, Job } from 'bullmq';
+import { Queue, Job } from 'bullmq';
 import Redis from 'ioredis';
 import { EventEmitter } from 'events';
 
@@ -27,7 +27,7 @@ class InMemoryQueue extends EventEmitter {
     delayed: 0,
     paused: 0
   };
-  private isPaused: boolean = false;
+  private _isPaused: boolean = false;
 
   async add(name: string, data: AuditJobData, options?: any): Promise<any> {
     const job = {
@@ -79,10 +79,10 @@ class InMemoryQueue extends EventEmitter {
   }
 
   async resume(): Promise<void> {
-    this.isPaused = false;
+    this._isPaused = false;
   }
 
-  async clean(grace: number, limit: number, status: 'completed' | 'failed'): Promise<string[]> {
+  async clean(_grace: number, limit: number, status: 'completed' | 'failed'): Promise<string[]> {
     const cleaned: string[] = [];
     this.jobs.forEach((job, id) => {
       if (job.status === status && cleaned.length < limit) {
